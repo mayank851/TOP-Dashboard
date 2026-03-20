@@ -8,6 +8,7 @@ import {
   getPlatformSummary, getPayoutWaterfall, fINR, fPct, fNum, formatPeriod, pctChange,
 } from '../utils/calculations';
 import KPICard from '../components/KPICard';
+import FounderInsights from '../components/FounderInsights';
 
 const darkTooltipStyle = {
   background: 'var(--bg-card)', border: '1px solid var(--border-light)',
@@ -200,6 +201,9 @@ export default function TopIntelligence({ records, brand, periodType }) {
         <KPICard label="Ads %" value={fPct(totals.adsPct)} color={totals.adsPct > 12 ? 'red' : totals.adsPct > 8 ? 'gold' : 'teal'} sub="of GMV" badge={totals.adsPct > 12 ? 'MONITOR' : null} />
         <KPICard label="TDS + TCS" value={fINR(totals.tds + totals.tcs, true)} color="purple" sub="Tax deductions" small />
       </div>
+      <div className="kpi-grid kpi-grid-5" style={{ marginBottom: 24 }}>
+        <KPICard label="Discount % of GMV" value={fPct(totals.discountPct)} color={totals.discountPct > 25 ? 'red' : totals.discountPct > 20 ? 'gold' : 'teal'} sub="Platform discount share" badge={totals.discountPct > 25 ? 'HIGH' : null} />
+      </div>
 
       {/* Revenue trend — all periods */}
       <div className="section-title">Revenue Trend — All Periods</div>
@@ -285,6 +289,27 @@ export default function TopIntelligence({ records, brand, periodType }) {
         <div className="chart-card-title">How GMV becomes Net Payout — deduction breakdown</div>
         <WaterfallDisplay waterfall={waterfall} />
       </div>
+
+      <FounderInsights
+        data={{
+          period: formatPeriod(activePeriod, periodType),
+          brand: currentBrand,
+          gmv: fINR(totals.gmv, true),
+          netPayout: fINR(totals.netPayout, true),
+          orders: fNum(totals.deliveredOrders),
+          aov: fINR(totals.aov),
+          netPayoutOnNetSalesPct: fPct(totals.netPayoutOnNetSales),
+          commissionPct: fPct(totals.commissionPct),
+          adsPct: fPct(totals.adsPct),
+          discountPct: fPct(totals.discountPct),
+          gmvChange: gmvChange != null ? fPct(gmvChange) : 'N/A',
+          ordersChange: ordersChange != null ? fPct(ordersChange) : 'N/A',
+          netChange: netChange != null ? fPct(netChange) : 'N/A',
+          platformSplit: platSummary.map(p => ({ platform: p.platform, gmv: fINR(p.gmv, true), netPayoutOnNetSales: fPct(p.netPayoutOnNetSales) })),
+          locationSplit: locSummary.map(l => ({ location: l.location, gmv: fINR(l.gmv, true), netPayoutOnNetSales: fPct(l.netPayoutOnNetSales) })),
+        }}
+        context={`TOP Intelligence — ${periodType} view for ${currentBrand}. Current period: ${formatPeriod(activePeriod, periodType)}. This is the primary brand for Seed/Series A investor discussions.`}
+      />
     </div>
   );
 }
@@ -318,3 +343,5 @@ function WaterfallDisplay({ waterfall }) {
     </div>
   );
 }
+
+// Note: FounderInsights is imported and used at bottom of component

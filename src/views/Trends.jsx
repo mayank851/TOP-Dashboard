@@ -1,5 +1,6 @@
 import React from 'react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, BarChart, Bar, Cell } from 'recharts';
+import FounderInsights from '../components/FounderInsights';
 import { filterRecords, getPeriodTrend, fINR, fPct, fNum, formatPeriod, groupBy, sumRecords } from '../utils/calculations';
 
 const ChartTip = ({ active, payload, label }) => {
@@ -172,6 +173,19 @@ export default function Trends({ records, brand, periodType }) {
           </div>
         </>
       )}
+
+<FounderInsights
+        data={{
+          brand: brand || 'All',
+          periodType,
+          metric,
+          trendPeriods: trend.length,
+          latestValue: trend.length > 0 ? trend[trend.length-1][metric] : null,
+          priorValue: trend.length > 1 ? trend[trend.length-2][metric] : null,
+          trend: trend.slice(-4).map(t => ({ period: t.period, value: t[metric] })),
+        }}
+        context={`Trends view — showing ${metric} trend for ${brand || 'all brands'} (${periodType}). ${locFilter !== 'All' ? `Filtered to ${locFilter} location.` : 'All locations.'}`}
+      />
     </div>
   );
 }

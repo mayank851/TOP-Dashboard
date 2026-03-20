@@ -1,6 +1,7 @@
 import React from 'react';
 import { filterRecords, sumRecords, getLocationSummary, getPlatformSummary, fINR, fPct, fNum } from '../utils/calculations';
 import KPICard from '../components/KPICard';
+import FounderInsights from '../components/FounderInsights';
 
 function WaterfallChart({ gmv, items, net }) {
   return (
@@ -184,6 +185,24 @@ export default function PayoutBreakdown({ records, brand, periodType }) {
           ⚠️ Reconciliation gap: {fINR(Math.abs(reconciliation))} — sum of known deductions doesn't exactly equal GMV − Net Payout. Check for additional line items.
         </div>
       )}
+<FounderInsights
+        data={{
+          gmv: fINR(t.gmv, true),
+          netPayout: fINR(t.netPayout, true),
+          effectiveRate: fPct(effectiveRate),
+          commission: fINR(t.commission, true),
+          commissionPct: fPct(t.commissionPct),
+          adSpend: fINR(t.totalAds, true),
+          adsPct: fPct(t.adsPct),
+          discountPct: fPct(t.discountPct),
+          tcs: fINR(t.tcs, true),
+          tds: fINR(t.tds, true),
+          hyperpure: fINR(t.hyperpure, true),
+          totalDeductions: fINR(totalKnownDeductions, true),
+          deductionPct: fPct(t.gmv > 0 ? totalKnownDeductions / t.gmv * 100 : 0),
+        }}
+        context="Payout Breakdown view — showing the full deduction waterfall from GMV to Net Payout. Focus on which deductions are highest and what levers exist to improve net payout."
+      />
     </div>
   );
 }
