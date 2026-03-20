@@ -10,12 +10,8 @@ import {
 import KPICard from '../components/KPICard';
 
 const darkTooltipStyle = {
-  background: 'var(--bg-card)',
-  border: '1px solid var(--border-light)',
-  borderRadius: 8,
-  padding: '10px 14px',
-  fontFamily: 'var(--font-mono)',
-  fontSize: 12,
+  background: 'var(--bg-card)', border: '1px solid var(--border-light)',
+  borderRadius: 8, padding: '10px 14px', fontFamily: 'var(--font-mono)', fontSize: 12,
 };
 
 const ChartTooltip = ({ active, payload, label }) => {
@@ -25,7 +21,7 @@ const ChartTooltip = ({ active, payload, label }) => {
       <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 1 }}>{label}</div>
       {payload.map(p => (
         <div key={p.name} style={{ color: p.color, marginBottom: 2 }}>
-          {p.name}: <strong>{typeof p.value === 'number' && p.value > 1000 ? fINR(p.value, true) : fPct(p.value)}</strong>
+          {p.name}: <strong>{typeof p.value === 'number' && p.value > 1000 ? fINR(p.value, true) : `${p.value}%`}</strong>
         </div>
       ))}
     </div>
@@ -51,75 +47,100 @@ export default function TopIntelligence({ records, brand, periodType }) {
   const [plat, setPlat] = React.useState('All');
 
   const currentBrand = brand || 'TOP';
+  const periodLabel = periodType === 'Monthly' ? 'month' : 'week';
 
-  // All records for this brand (for location/platform tables — unfiltered by loc/plat)
-  const brandRecords = filterRecords(records, { brand: currentBrand, periodType });
+  // All periods available for this brand
+  const allBrandRecs = filterRecords(records, { brand: currentBrand, periodType });
+  const sortedPeriods = [...new Set(allBrandRecs.map(r => r.periodStart))].sort();
+  const latestPeriod = sortedPeriods[sortedPeriods.length - 1];
+  const priorPeriod = sortedPeriods[sortedPeriods.length - 2];
 
-  // Filtered records for KPIs (respects loc + plat selection)
-  const filteredRecords = filterRecords(records, {
+  // Period selector — defaults to latest
+  const [selectedPeriod, setSelectedPeriod] = React.useState('latest');
+  const activePeriod = selectedPeriod === 'latest' ? latestPeriod : selectedPeriod;
+
+  // Records for the selected period, filtered by loc + plat
+  const currentRecs = filterRecords(records, {
     brand: currentBrand,
     location: loc !== 'All' ? loc : undefined,
     platform: plat !== 'All' ? plat : undefined,
     periodType,
+  }).filter(r => r.periodStart === activePeriod);
+
+  const priorRecs = priorPeriod ? filterRecords(records, {
+    brand: currentBrand,
+    location: loc !== 'All' ? loc : undefined,
+    platform: plat !== 'All' ? plat : undefined,
+    periodType,
+  }).filter(r => r.periodStart === priorPeriod) : [];
+
+  const totals = sumRecords(currentRecs);
+  const priorTotals = priorRecs.length ? sumRecords(priorRecs) : null;
+
+  const gmvChange = priorTotals ? pctChange(totals.gmv, priorTotals.gmv) : null;
+  const ordersChange = priorTotals ? pctChange(totals.deliveredOrders, priorTotals.deliveredOrders) : null;
+  const netChange = priorTotals ? pctChange(totals.netPayout, priorTotals.netPayout) : null;
+  const nsChange = priorTotals ? pctChange(totals.netPayoutOnNetSales, priorTotals.netPayoutOnNetSales) : null;
+
+  // Trend — all periods, filtered by loc+plat
+  const trendBase = filterRecords(records, {
+    brand: currentBrand,
+    location: loc !== 'All' ? loc : undefined,
+    platform: plat !== 'All' ? plat : undefined,
   });
-
-  const totals = sumRecords(filteredRecords);
-
-  // Trend uses filtered records
-  const trend = getPeriodTrend(
-    filterRecords(records, {
-      brand: currentBrand,
-      location: loc !== 'All' ? loc : undefined,
-      platform: plat !== 'All' ? plat : undefined,
-    }),
-    periodType
-  );
-
-  // Location + platform summary — filtered by loc/plat selections
-  const locSummary = getLocationSummary(
-    filterRecords(records, { brand: currentBrand, platform: plat !== 'All' ? plat : undefined }),
-    null,
-    periodType
-  );
-  const platSummary = getPlatformSummary(
-    filterRecords(records, { brand: currentBrand, location: loc !== 'All' ? loc : undefined }),
-    null,
-    periodType
-  );
-
-  const waterfall = getPayoutWaterfall(totals);
-
-  // Period-over-period
-  const sortedPeriods = [...new Set(brandRecords.map(r => r.periodStart))].sort();
-  const lastPeriod = sortedPeriods[sortedPeriods.length - 1];
-  const priorPeriod = sortedPeriods[sortedPeriods.length - 2];
-  const lastRecs = sumRecords(filteredRecords.filter(r => r.periodStart === lastPeriod));
-  const priorRecs = priorPeriod ? sumRecords(filteredRecords.filter(r => r.periodStart === priorPeriod)) : null;
-
-  const gmvChange = priorRecs ? pctChange(lastRecs.gmv, priorRecs.gmv) : null;
-  const ordersChange = priorRecs ? pctChange(lastRecs.deliveredOrders, priorRecs.deliveredOrders) : null;
-  const netChange = priorRecs ? pctChange(lastRecs.netPayout, priorRecs.netPayout) : null;
-
-  const trendData = trend.map(t => ({
+  const trendData = getPeriodTrend(trendBase, periodType).map(t => ({
     ...t,
     period: formatPeriod(t.period, periodType),
     commissionPct: +t.commissionPct.toFixed(1),
     adsPct: +t.adsPct.toFixed(1),
-    netMarginPct: +t.netMarginPct.toFixed(1),
     netPayoutOnNetSales: +t.netPayoutOnNetSales.toFixed(1),
   }));
 
-  const brandLocs = ['All', ...new Set(records.filter(r => r.brand === currentBrand && r.periodType === periodType).map(r => r.location))].filter(Boolean);
-  const brandPlats = ['All', ...new Set(records.filter(r => r.brand === currentBrand && r.periodType === periodType).map(r => r.platform))].filter(Boolean);
+  // Location + platform tables — filtered only by the other dimension
+  const locSummary = getLocationSummary(
+    filterRecords(records, { brand: currentBrand, platform: plat !== 'All' ? plat : undefined }).filter(r => r.periodStart === activePeriod),
+    null, periodType
+  );
+  const platSummary = getPlatformSummary(
+    filterRecords(records, { brand: currentBrand, location: loc !== 'All' ? loc : undefined }).filter(r => r.periodStart === activePeriod),
+    null, periodType
+  );
 
-  const periodLabel = periodType === 'Monthly' ? 'MoM' : 'WoW';
+  const waterfall = getPayoutWaterfall(totals);
+
+  const brandLocs = ['All', ...new Set(allBrandRecs.map(r => r.location))].filter(Boolean);
+  const brandPlats = ['All', ...new Set(allBrandRecs.map(r => r.platform))].filter(Boolean);
 
   return (
     <div className="content-area">
       <div className="view-header">
-        <div className="view-title">🏆 {currentBrand} Intelligence</div>
-        <div className="view-subtitle">
-          Investor metrics — {periodType} view · {sortedPeriods.length} periods
+        <div className="flex-between">
+          <div>
+            <div className="view-title">🏆 {currentBrand} Intelligence</div>
+            <div className="view-subtitle">
+              Showing: <strong style={{ color: 'var(--text-primary)' }}>{formatPeriod(activePeriod, periodType)}</strong>
+              {priorTotals && <span> · vs {formatPeriod(priorPeriod, periodType)}</span>}
+              {' '}· {sortedPeriods.length} {periodLabel}s in tracker
+            </div>
+          </div>
+          {/* Period selector */}
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end', maxWidth: 480 }}>
+            <button
+              className={`pill pill-sm${selectedPeriod === 'latest' ? ' active' : ''}`}
+              onClick={() => setSelectedPeriod('latest')}
+            >
+              Latest
+            </button>
+            {[...sortedPeriods].reverse().slice(0, 6).map(p => (
+              <button
+                key={p}
+                className={`pill pill-sm${selectedPeriod === p && selectedPeriod !== 'latest' ? ' active' : ''}`}
+                onClick={() => setSelectedPeriod(p)}
+              >
+                {formatPeriod(p, periodType)}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -135,28 +156,53 @@ export default function TopIntelligence({ records, brand, periodType }) {
         ))}
       </div>
 
-      {/* KPI Row 1 */}
-      <div className="section-title" style={{ marginTop: 0 }}>Revenue & Volume</div>
+      {/* KPI Row 1 — current period */}
+      <div className="section-title" style={{ marginTop: 0 }}>Revenue & Volume — {formatPeriod(activePeriod, periodType)}</div>
       <div className="kpi-grid kpi-grid-5" style={{ marginBottom: 12 }}>
-        <KPICard label="GMV" value={fINR(totals.gmv, true)} color="purple" changePct={gmvChange} sub={`vs prior ${periodType === 'Monthly' ? 'month' : 'week'}`} />
-        <KPICard label="Net Payout" value={fINR(totals.netPayout, true)} color="green" changePct={netChange} sub={`vs prior ${periodType === 'Monthly' ? 'month' : 'week'}`} />
+        <KPICard label="GMV" value={fINR(totals.gmv, true)} color="purple" changePct={gmvChange} sub={`vs prior ${periodLabel}`} />
+        <KPICard label="Net Payout" value={fINR(totals.netPayout, true)} color="green" changePct={netChange} sub={`vs prior ${periodLabel}`} />
         <KPICard label="Net Sales" value={fINR(totals.netSales, true)} color="blue" sub="After discounts" />
-        <KPICard label="Orders" value={fNum(totals.deliveredOrders)} color="teal" changePct={ordersChange} sub={`vs prior ${periodType === 'Monthly' ? 'month' : 'week'}`} />
+        <KPICard label="Orders" value={fNum(totals.deliveredOrders)} color="teal" changePct={ordersChange} sub={`vs prior ${periodLabel}`} />
         <KPICard label="AOV" value={fINR(totals.aov)} color="gold" sub="Avg order value" />
       </div>
+
+      {/* Prior period comparison row */}
+      {priorTotals && (
+        <div style={{
+          background: 'var(--bg-surface)', border: '1px solid var(--border)',
+          borderRadius: 8, padding: '10px 16px', marginBottom: 16,
+          display: 'flex', gap: 32, flexWrap: 'wrap',
+        }}>
+          <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, alignSelf: 'center', marginRight: 8 }}>
+            Prior {periodLabel} ({formatPeriod(priorPeriod, periodType)})
+          </div>
+          {[
+            { l: 'GMV', v: fINR(priorTotals.gmv, true) },
+            { l: 'Net Payout', v: fINR(priorTotals.netPayout, true) },
+            { l: 'Orders', v: fNum(priorTotals.deliveredOrders) },
+            { l: 'AOV', v: fINR(priorTotals.aov) },
+            { l: 'Payout/NS%', v: fPct(priorTotals.netPayoutOnNetSales) },
+          ].map(m => (
+            <div key={m.l}>
+              <div style={{ fontSize: 9, color: 'var(--text-muted)', letterSpacing: 1, textTransform: 'uppercase' }}>{m.l}</div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: 'var(--text-secondary)' }}>{m.v}</div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* KPI Row 2 - Unit Economics */}
       <div className="section-title">Unit Economics</div>
       <div className="kpi-grid kpi-grid-5" style={{ marginBottom: 24 }}>
-        <KPICard label="Payout on Net Sales" value={fPct(totals.netPayoutOnNetSales)} color={totals.netPayoutOnNetSales > 55 ? 'green' : totals.netPayoutOnNetSales < 40 ? 'red' : 'gold'} sub="Best margin proxy" />
+        <KPICard label="Payout on Net Sales" value={fPct(totals.netPayoutOnNetSales)} color={totals.netPayoutOnNetSales > 55 ? 'green' : totals.netPayoutOnNetSales < 40 ? 'red' : 'gold'} changePct={nsChange} sub={`vs prior ${periodLabel}`} />
         <KPICard label="Net Margin % (on GMV)" value={fPct(totals.netMarginPct)} color={totals.netMarginPct > 40 ? 'green' : totals.netMarginPct < 30 ? 'red' : 'gold'} sub="Net payout / GMV" />
         <KPICard label="Commission %" value={fPct(totals.commissionPct)} color={totals.commissionPct > 28 ? 'red' : 'orange'} sub="of GMV" badge={totals.commissionPct > 28 ? 'HIGH' : null} />
         <KPICard label="Ads %" value={fPct(totals.adsPct)} color={totals.adsPct > 12 ? 'red' : totals.adsPct > 8 ? 'gold' : 'teal'} sub="of GMV" badge={totals.adsPct > 12 ? 'MONITOR' : null} />
         <KPICard label="TDS + TCS" value={fINR(totals.tds + totals.tcs, true)} color="purple" sub="Tax deductions" small />
       </div>
 
-      {/* Revenue trend */}
-      <div className="section-title">Revenue Trend</div>
+      {/* Revenue trend — all periods */}
+      <div className="section-title">Revenue Trend — All Periods</div>
       <div className="chart-card" style={{ marginBottom: 12 }}>
         <div className="chart-card-title">GMV & Net Payout — {periodType}</div>
         <ResponsiveContainer width="100%" height={240}>
@@ -174,9 +220,8 @@ export default function TopIntelligence({ records, brand, periodType }) {
         </ResponsiveContainer>
       </div>
 
-      {/* Unit economics trend */}
       <div className="chart-card" style={{ marginBottom: 12 }}>
-        <div className="chart-card-title">Commission% · Ads% · Net Margin% — {periodType} trend</div>
+        <div className="chart-card-title">Commission% · Ads% · Payout on Net Sales% — trend</div>
         <ResponsiveContainer width="100%" height={200}>
           <LineChart data={trendData}>
             <CartesianGrid stroke="rgba(255,255,255,0.03)" strokeDasharray="3 3" />
@@ -186,22 +231,22 @@ export default function TopIntelligence({ records, brand, periodType }) {
             <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12, color: '#8892c4' }} />
             <Line type="monotone" dataKey="commissionPct" name="Commission%" stroke="#f87171" strokeWidth={2} dot={{ r: 3 }} />
             <Line type="monotone" dataKey="adsPct" name="Ads%" stroke="#fb923c" strokeWidth={2} dot={{ r: 3 }} />
-            <Line type="monotone" dataKey="netPayoutOnNetSales" name="Payout on Net Sales%" stroke="#4ade80" strokeWidth={2.5} dot={{ r: 4 }} />
+            <Line type="monotone" dataKey="netPayoutOnNetSales" name="Payout/NS%" stroke="#4ade80" strokeWidth={2.5} dot={{ r: 4 }} />
           </LineChart>
         </ResponsiveContainer>
       </div>
 
-      {/* Platform + Location */}
-      <div className="section-title">Platform & Location Split {loc !== 'All' || plat !== 'All' ? `— filtered` : ''}</div>
+      {/* Platform + Location for selected period */}
+      <div className="section-title">Platform & Location — {formatPeriod(activePeriod, periodType)}</div>
       <div className="chart-row chart-row-2">
         <div className="chart-card">
-          <div className="chart-card-title">By Platform {plat !== 'All' ? `· ${plat} only` : ''}</div>
+          <div className="chart-card-title">By Platform</div>
           <table className="data-table">
             <thead>
               <tr><th>Platform</th><th>Orders</th><th>GMV</th><th>Net Payout</th><th>Payout/NS%</th></tr>
             </thead>
             <tbody>
-              {platSummary.map(p => (
+              {platSummary.length ? platSummary.map(p => (
                 <tr key={p.platform}>
                   <td><span className={`badge-platform badge-${p.platform.toLowerCase()}`}>{p.platform}</span></td>
                   <td>{fNum(p.deliveredOrders)}</td>
@@ -209,18 +254,18 @@ export default function TopIntelligence({ records, brand, periodType }) {
                   <td style={{ color: 'var(--accent-green)' }}>{fINR(p.netPayout, true)}</td>
                   <td style={{ color: p.netPayoutOnNetSales > 55 ? 'var(--accent-green)' : 'var(--accent-gold)' }}>{fPct(p.netPayoutOnNetSales)}</td>
                 </tr>
-              ))}
+              )) : <tr><td colSpan={5} className="no-data">No data for this period</td></tr>}
             </tbody>
           </table>
         </div>
         <div className="chart-card">
-          <div className="chart-card-title">By Location {loc !== 'All' ? `· ${loc} only` : ''}</div>
+          <div className="chart-card-title">By Location</div>
           <table className="data-table">
             <thead>
               <tr><th>Location</th><th>Orders</th><th>GMV</th><th>Net Payout</th><th>Payout/NS%</th></tr>
             </thead>
             <tbody>
-              {locSummary.map(l => (
+              {locSummary.length ? locSummary.map(l => (
                 <tr key={l.location}>
                   <td><strong>{l.location}</strong></td>
                   <td>{fNum(l.deliveredOrders)}</td>
@@ -228,14 +273,14 @@ export default function TopIntelligence({ records, brand, periodType }) {
                   <td style={{ color: 'var(--accent-green)' }}>{fINR(l.netPayout, true)}</td>
                   <td style={{ color: l.netPayoutOnNetSales > 55 ? 'var(--accent-green)' : 'var(--accent-gold)' }}>{fPct(l.netPayoutOnNetSales)}</td>
                 </tr>
-              ))}
+              )) : <tr><td colSpan={5} className="no-data">No data for this period</td></tr>}
             </tbody>
           </table>
         </div>
       </div>
 
       {/* Waterfall */}
-      <div className="section-title">Payout Waterfall</div>
+      <div className="section-title">Payout Waterfall — {formatPeriod(activePeriod, periodType)}</div>
       <div className="chart-card">
         <div className="chart-card-title">How GMV becomes Net Payout — deduction breakdown</div>
         <WaterfallDisplay waterfall={waterfall} />

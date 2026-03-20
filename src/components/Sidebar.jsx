@@ -3,8 +3,6 @@ import React from 'react';
 const NAV_ITEMS = [
   { id: 'overview',     icon: '📊', label: 'Overview' },
   { id: 'top',          icon: '🏆', label: 'TOP Intelligence' },
-  { id: 'location',     icon: '📍', label: 'By Location' },
-  { id: 'platform',     icon: '🔀', label: 'By Platform' },
   { id: 'breakdown',    icon: '💸', label: 'Payout Breakdown' },
   { id: 'trends',       icon: '📈', label: 'Trends' },
 ];
@@ -44,7 +42,7 @@ export default function Sidebar({ activeView, setView, brand, setBrand, availabl
         </select>
       </div>
 
-      {/* Period type toggle */}
+      {/* Period toggle */}
       <div style={{ padding: '10px 16px 0' }}>
         <div className="sidebar-section-label" style={{ padding: '0 2px 6px', marginTop: 0 }}>Period</div>
         <div style={{ display: 'flex', gap: 6 }}>
@@ -53,18 +51,12 @@ export default function Sidebar({ activeView, setView, brand, setBrand, availabl
               key={p}
               onClick={() => setPeriodType(p)}
               style={{
-                flex: 1,
-                padding: '7px 0',
-                borderRadius: 6,
-                border: '1px solid',
+                flex: 1, padding: '7px 0', borderRadius: 6, border: '1px solid',
                 borderColor: periodType === p ? 'var(--accent-purple)' : 'var(--border-light)',
                 background: periodType === p ? 'var(--accent-purple)' : 'transparent',
                 color: periodType === p ? '#fff' : 'var(--text-secondary)',
-                fontFamily: 'var(--font-display)',
-                fontSize: 12,
-                fontWeight: 600,
-                cursor: 'pointer',
-                transition: 'all 0.15s',
+                fontFamily: 'var(--font-display)', fontSize: 12, fontWeight: 600,
+                cursor: 'pointer', transition: 'all 0.15s',
               }}
             >
               {p}
@@ -89,7 +81,7 @@ export default function Sidebar({ activeView, setView, brand, setBrand, availabl
       {/* Actions */}
       <div className="sidebar-section-label">Actions</div>
       <button className="sidebar-upload-btn" onClick={() => fileRef.current?.click()}>
-        <span>📁</span> Load Tracker
+        <span>📁</span> Load New Tracker
       </button>
       <input ref={fileRef} type="file" accept=".xlsx,.xls" style={{ display: 'none' }} onChange={handleFile} />
 
