@@ -117,8 +117,9 @@ export function getPlatformSummary(records, brand = null, periodType = 'Weekly')
 
 export function getPayoutWaterfall(totals) {
   const { gmv, commission, totalAds, gstDeduction, tcs, tds, hyperpure,
-          platformFees, cancelCharges, netPayout } = totals;
+          platformFees, cancelCharges, netPayout, discountShare } = totals;
   const deductions = [
+    { label: 'Discounts', value: -Math.abs(discountShare || 0), color: '#e879f9' },
     { label: 'Commission', value: -Math.abs(commission), color: '#f87171' },
     { label: 'Ad Spend', value: -Math.abs(totalAds), color: '#fb923c' },
     { label: 'GST Deduction', value: -Math.abs(gstDeduction), color: '#fbbf24' },
