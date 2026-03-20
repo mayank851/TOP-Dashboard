@@ -1,0 +1,179 @@
+import React from 'react';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { getBrandSummary, getLocationSummary, fINR, fPct, fNum } from '../utils/calculations';
+
+const BRAND_COLORS = { TOP: '#7c6ef5', FB: '#2dd4bf', FI: '#f5c518', All: '#60a5fa' };
+
+const CustomTooltip = ({ active, payload, label }) => {
+  if (!active || !payload?.length) return null;
+  return (
+    <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-light)', borderRadius: 8, padding: '10px 14px' }}>
+      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 6 }}>{label}</div>
+      {payload.map(p => (
+        <div key={p.name} style={{ fontSize: 12, color: p.color || 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
+          {p.name}: {fINR(p.value, true)}
+        </div>
+      ))}
+    </div>
+  );
+};
+
+export default function Overview({ records }) {
+  const weekly = records.filter(r => r.periodType === 'Weekly');
+  const brands = getBrandSummary(weekly.length ? records : records);
+  const allLoc = getLocationSummary(records);
+  const total = brands.reduce((a, b) => ({
+    gmv: a.gmv + b.gmv,
+    netPayout: a.netPayout + b.netPayout,
+    deliveredOrders: a.deliveredOrders + b.deliveredOrders,
+  }), { gmv: 0, netPayout: 0, deliveredOrders: 0 });
+
+  return (
+    <div className="content-area">
+      <div className="view-header">
+        <div className="view-title">📊 Overview</div>
+        <div className="view-subtitle">All brands · All locations · All platforms</div>
+      </div>
+
+      {/* Top KPIs */}
+      <div className="section-title" style={{ marginTop: 0 }}>Portfolio Summary</div>
+      <div className="kpi-grid kpi-grid-4" style={{ marginBottom: 24 }}>
+        <div className="kpi-card purple">
+          <div className="kpi-label">Total GMV</div>
+          <div className="kpi-value">{fINR(total.gmv, true)}</div>
+          <div className="kpi-sub">Gross merchandise value</div>
+        </div>
+        <div className="kpi-card green">
+          <div className="kpi-label">Net Payout</div>
+          <div className="kpi-value">{fINR(total.netPayout, true)}</div>
+          <div className="kpi-sub">Cash received from platforms</div>
+        </div>
+        <div className="kpi-card blue">
+          <div className="kpi-label">Total Orders</div>
+          <div className="kpi-value">{fNum(total.deliveredOrders)}</div>
+          <div className="kpi-sub">Delivered across all brands</div>
+        </div>
+        <div className="kpi-card gold">
+          <div className="kpi-label">Payout Rate</div>
+          <div className="kpi-value">{total.gmv > 0 ? fPct(total.netPayout / total.gmv * 100) : '—'}</div>
+          <div className="kpi-sub">Net payout / GMV</div>
+        </div>
+      </div>
+
+      {/* Brand breakdown */}
+      <div className="section-title">Brand Breakdown</div>
+      <div className="chart-row chart-row-2">
+        <div className="chart-card">
+          <div className="chart-card-title">GMV by Brand</div>
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={brands} barSize={48}>
+              <XAxis dataKey="brand" tick={{ fill: '#6272a4', fontSize: 12, fontFamily: 'var(--font-display)' }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fill: '#6272a4', fontSize: 11, fontFamily: 'var(--font-mono)' }} axisLine={false} tickLine={false} tickFormatter={v => fINR(v, true)} />
+              <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
+              <Bar dataKey="gmv" name="GMV" radius={[4, 4, 0, 0]}>
+                {brands.map(b => <Cell key={b.brand} fill={BRAND_COLORS[b.brand] || '#6366f1'} />)}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="chart-card">
+          <div className="chart-card-title">Net Payout by Brand</div>
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={brands} barSize={48}>
+              <XAxis dataKey="brand" tick={{ fill: '#6272a4', fontSize: 12, fontFamily: 'var(--font-display)' }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fill: '#6272a4', fontSize: 11, fontFamily: 'var(--font-mono)' }} axisLine={false} tickLine={false} tickFormatter={v => fINR(v, true)} />
+              <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
+              <Bar dataKey="netPayout" name="Net Payout" radius={[4, 4, 0, 0]}>
+                {brands.map(b => <Cell key={b.brand} fill={BRAND_COLORS[b.brand] || '#22c55e'} fillOpacity={0.85} />)}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* Brand table */}
+      <div className="chart-card" style={{ marginTop: 12 }}>
+        <div className="chart-card-title">Brand Performance Table</div>
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>Brand</th>
+              <th>Orders</th>
+              <th>GMV</th>
+              <th>Net Sales</th>
+              <th>Net Payout</th>
+              <th>Commission%</th>
+              <th>Ads%</th>
+              <th>Net Margin%</th>
+              <th>AOV</th>
+            </tr>
+          </thead>
+          <tbody>
+            {brands.map(b => (
+              <tr key={b.brand}>
+                <td>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ width: 10, height: 10, borderRadius: '50%', background: BRAND_COLORS[b.brand] || '#6366f1', display: 'inline-block', flexShrink: 0 }} />
+                    <strong>{b.brand}</strong>
+                  </span>
+                </td>
+                <td>{fNum(b.deliveredOrders)}</td>
+                <td>{fINR(b.gmv)}</td>
+                <td>{fINR(b.netSales)}</td>
+                <td style={{ color: 'var(--accent-green)' }}>{fINR(b.netPayout)}</td>
+                <td style={{ color: b.commissionPct > 25 ? 'var(--accent-red)' : 'var(--text-primary)' }}>{fPct(b.commissionPct)}</td>
+                <td style={{ color: b.adsPct > 10 ? 'var(--accent-gold)' : 'var(--text-primary)' }}>{fPct(b.adsPct)}</td>
+                <td style={{ color: b.netMarginPct > 20 ? 'var(--accent-green)' : b.netMarginPct < 10 ? 'var(--accent-red)' : 'var(--accent-gold)' }}>
+                  {fPct(b.netMarginPct)}
+                </td>
+                <td>{fINR(b.aov)}</td>
+              </tr>
+            ))}
+            <tr className="total-row">
+              <td>All Brands</td>
+              <td>{fNum(brands.reduce((a, b) => a + b.deliveredOrders, 0))}</td>
+              <td>{fINR(brands.reduce((a, b) => a + b.gmv, 0))}</td>
+              <td>{fINR(brands.reduce((a, b) => a + b.netSales, 0))}</td>
+              <td style={{ color: 'var(--accent-green)' }}>{fINR(brands.reduce((a, b) => a + b.netPayout, 0))}</td>
+              <td>—</td><td>—</td><td>—</td><td>—</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      {/* Location table */}
+      <div className="section-title">All Locations (Combined Brands)</div>
+      <div className="chart-card">
+        <div className="chart-card-title">Location Performance</div>
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>Location</th>
+              <th>Orders</th>
+              <th>GMV</th>
+              <th>Net Payout</th>
+              <th>Commission%</th>
+              <th>Ads%</th>
+              <th>Net Margin%</th>
+              <th>AOV</th>
+            </tr>
+          </thead>
+          <tbody>
+            {allLoc.map(l => (
+              <tr key={l.location}>
+                <td><strong>{l.location}</strong></td>
+                <td>{fNum(l.deliveredOrders)}</td>
+                <td>{fINR(l.gmv)}</td>
+                <td style={{ color: 'var(--accent-green)' }}>{fINR(l.netPayout)}</td>
+                <td>{fPct(l.commissionPct)}</td>
+                <td>{fPct(l.adsPct)}</td>
+                <td style={{ color: l.netMarginPct > 20 ? 'var(--accent-green)' : 'var(--accent-gold)' }}>{fPct(l.netMarginPct)}</td>
+                <td>{fINR(l.aov)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
