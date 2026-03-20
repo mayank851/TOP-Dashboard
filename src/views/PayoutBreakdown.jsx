@@ -50,7 +50,7 @@ function WRow({ label, value, ref_gmv, color, isStart, isEnd }) {
   );
 }
 
-export default function PayoutBreakdown({ records, brand }) {
+export default function PayoutBreakdown({ records, brand, periodType }) {
   const [loc, setLoc] = React.useState('All');
   const [plat, setPlat] = React.useState('All');
 
@@ -58,7 +58,7 @@ export default function PayoutBreakdown({ records, brand }) {
   const filtered = filterRecords(base, {
     location: loc !== 'All' ? loc : undefined,
     platform: plat !== 'All' ? plat : undefined,
-    periodType: 'Weekly',
+    periodType,
   });
 
   const t = sumRecords(filtered);

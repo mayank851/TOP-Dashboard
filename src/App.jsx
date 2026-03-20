@@ -16,6 +16,7 @@ export default function App() {
   const [error, setError] = React.useState(null);
   const [view, setView] = React.useState('overview');
   const [brand, setBrand] = React.useState('TOP');
+  const [periodType, setPeriodType] = React.useState('Weekly');
   const [meta, setMeta] = React.useState({ brands: ['TOP'], locations: [], platforms: [] });
 
   const handleUpload = async (file) => {
@@ -27,7 +28,6 @@ export default function App() {
       const m = getMetadata(recs);
       setRecords(recs);
       setMeta(m);
-      // Default to TOP if available, else first brand
       const defaultBrand = m.brands.includes('TOP') ? 'TOP' : m.brands[0];
       setBrand(defaultBrand);
       setView('overview');
@@ -43,9 +43,7 @@ export default function App() {
       <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-page)' }}>
         <div style={{ textAlign: 'center' }}>
           <div style={{ fontSize: 36, marginBottom: 16 }}>⚡</div>
-          <div style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)', fontSize: 14 }}>
-            Parsing tracker…
-          </div>
+          <div style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)', fontSize: 14 }}>Parsing tracker…</div>
         </div>
       </div>
     );
@@ -69,23 +67,19 @@ export default function App() {
     );
   }
 
+  const props = { records, brand, periodType };
+
   const renderView = () => {
     switch (view) {
-      case 'overview':    return <Overview records={records} brand={brand} />;
-      case 'top':         return <TopIntelligence records={records} brand={brand} />;
-      case 'location':    return <ByLocation records={records} brand={brand} />;
-      case 'platform':    return <ByPlatform records={records} brand={brand} />;
-      case 'breakdown':   return <PayoutBreakdown records={records} brand={brand} />;
-      case 'trends':      return <Trends records={records} brand={brand} />;
-      default:            return <Overview records={records} brand={brand} />;
+      case 'overview':   return <Overview {...props} />;
+      case 'top':        return <TopIntelligence {...props} />;
+      case 'location':   return <ByLocation {...props} />;
+      case 'platform':   return <ByPlatform {...props} />;
+      case 'breakdown':  return <PayoutBreakdown {...props} />;
+      case 'trends':     return <Trends {...props} />;
+      default:           return <Overview {...props} />;
     }
   };
-
-  // Show periods in sidebar subtitle
-  const periods = [...new Set(records.filter(r => r.periodType === 'Weekly').map(r => r.periodStart))].sort();
-  const dateRange = periods.length >= 2
-    ? `${periods[0]} → ${periods[periods.length - 1]}`
-    : periods[0] || 'No periods';
 
   return (
     <div className="layout">
@@ -96,7 +90,8 @@ export default function App() {
         setBrand={setBrand}
         availableBrands={meta.brands}
         onUpload={handleUpload}
-        dateRange={dateRange}
+        periodType={periodType}
+        setPeriodType={setPeriodType}
       />
       <main className="main">
         {renderView()}

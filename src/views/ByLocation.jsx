@@ -19,9 +19,9 @@ const ChartTip = ({ active, payload, label }) => {
   );
 };
 
-export default function ByLocation({ records, brand }) {
+export default function ByLocation({ records, brand, periodType }) {
   const base = brand && brand !== 'All' ? records.filter(r => r.brand === brand) : records;
-  const weekly = base.filter(r => r.periodType === 'Weekly');
+  const weekly = base.filter(r => r.periodType === periodType);
 
   const locations = [...new Set(weekly.map(r => r.location))].filter(Boolean).sort();
   const [activeLoc, setActiveLoc] = React.useState('All');
@@ -31,7 +31,7 @@ export default function ByLocation({ records, brand }) {
 
   // Trend for active loc
   const locForTrend = activeLoc === 'All' ? base : base.filter(r => r.location === activeLoc);
-  const trend = getPeriodTrend(locForTrend).map(t => ({ ...t, period: formatPeriod(t.period) }));
+  const trend = getPeriodTrend(locForTrend, periodType).map(t => ({ ...t, period: formatPeriod(t.period, periodType) }));
 
   // Platform split for active loc
   const platSplit = getPlatformSummary(base.filter(r => activeLoc === 'All' || r.location === activeLoc), brand);

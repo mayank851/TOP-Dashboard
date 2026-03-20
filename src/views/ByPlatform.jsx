@@ -20,9 +20,9 @@ const ChartTip = ({ active, payload, label }) => {
   );
 };
 
-export default function ByPlatform({ records, brand }) {
+export default function ByPlatform({ records, brand, periodType }) {
   const base = brand && brand !== 'All' ? records.filter(r => r.brand === brand) : records;
-  const weekly = base.filter(r => r.periodType === 'Weekly');
+  const weekly = base.filter(r => r.periodType === periodType);
 
   const platforms = [...new Set(weekly.map(r => r.platform))].filter(Boolean);
   const [activePlat, setActivePlat] = React.useState('All');

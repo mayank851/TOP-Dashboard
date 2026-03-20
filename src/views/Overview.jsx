@@ -1,6 +1,6 @@
 import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { getBrandSummary, getLocationSummary, fINR, fPct, fNum } from '../utils/calculations';
+import { getBrandSummary, getLocationSummary, getPeriodTrend, formatPeriod, fINR, fPct, fNum, pctChange } from '../utils/calculations';
 
 const BRAND_COLORS = { TOP: '#7c6ef5', FB: '#2dd4bf', FI: '#f5c518', All: '#60a5fa' };
 
@@ -18,21 +18,32 @@ const CustomTooltip = ({ active, payload, label }) => {
   );
 };
 
-export default function Overview({ records }) {
-  const weekly = records.filter(r => r.periodType === 'Weekly');
-  const brands = getBrandSummary(weekly.length ? records : records);
-  const allLoc = getLocationSummary(records);
+export default function Overview({ records, periodType }) {
+  const brands = getBrandSummary(records, periodType);
+  const allLoc = getLocationSummary(records, null, periodType);
+
+  // WoW / MoM change for top-line
+  const trend = getPeriodTrend(records, periodType);
+  const last = trend[trend.length - 1];
+  const prior = trend[trend.length - 2];
+  const gmvChange = last && prior ? pctChange(last.gmv, prior.gmv) : null;
+  const ordersChange = last && prior ? pctChange(last.deliveredOrders, prior.deliveredOrders) : null;
+
   const total = brands.reduce((a, b) => ({
     gmv: a.gmv + b.gmv,
     netPayout: a.netPayout + b.netPayout,
+    netSales: a.netSales + b.netSales,
     deliveredOrders: a.deliveredOrders + b.deliveredOrders,
-  }), { gmv: 0, netPayout: 0, deliveredOrders: 0 });
+  }), { gmv: 0, netPayout: 0, netSales: 0, deliveredOrders: 0 });
+
+  const netPayoutOnNetSales = total.netSales > 0 ? (total.netPayout / total.netSales) * 100 : 0;
+  const periodLabel = periodType === 'Monthly' ? 'MoM' : 'WoW';
 
   return (
     <div className="content-area">
       <div className="view-header">
         <div className="view-title">📊 Overview</div>
-        <div className="view-subtitle">All brands · All locations · All platforms</div>
+        <div className="view-subtitle">All brands · All locations · All platforms · {periodType} view</div>
       </div>
 
       {/* Top KPIs */}
@@ -41,7 +52,9 @@ export default function Overview({ records }) {
         <div className="kpi-card purple">
           <div className="kpi-label">Total GMV</div>
           <div className="kpi-value">{fINR(total.gmv, true)}</div>
-          <div className="kpi-sub">Gross merchandise value</div>
+          <div className={`kpi-change${gmvChange != null ? (gmvChange >= 0 ? ' pos' : ' neg') : ' neu'}`}>
+            {gmvChange != null ? `${gmvChange >= 0 ? '▲' : '▼'} ${Math.abs(gmvChange).toFixed(1)}% ${periodLabel}` : 'Gross merchandise value'}
+          </div>
         </div>
         <div className="kpi-card green">
           <div className="kpi-label">Net Payout</div>
@@ -51,12 +64,14 @@ export default function Overview({ records }) {
         <div className="kpi-card blue">
           <div className="kpi-label">Total Orders</div>
           <div className="kpi-value">{fNum(total.deliveredOrders)}</div>
-          <div className="kpi-sub">Delivered across all brands</div>
+          <div className={`kpi-change${ordersChange != null ? (ordersChange >= 0 ? ' pos' : ' neg') : ' neu'}`}>
+            {ordersChange != null ? `${ordersChange >= 0 ? '▲' : '▼'} ${Math.abs(ordersChange).toFixed(1)}% ${periodLabel}` : 'Delivered across all brands'}
+          </div>
         </div>
         <div className="kpi-card gold">
-          <div className="kpi-label">Payout Rate</div>
-          <div className="kpi-value">{total.gmv > 0 ? fPct(total.netPayout / total.gmv * 100) : '—'}</div>
-          <div className="kpi-sub">Net payout / GMV</div>
+          <div className="kpi-label">Net Payout on Net Sales</div>
+          <div className="kpi-value">{fPct(netPayoutOnNetSales)}</div>
+          <div className="kpi-sub">Cash kept after platform deductions</div>
         </div>
       </div>
 
@@ -93,7 +108,7 @@ export default function Overview({ records }) {
 
       {/* Brand table */}
       <div className="chart-card" style={{ marginTop: 12 }}>
-        <div className="chart-card-title">Brand Performance Table</div>
+        <div className="chart-card-title">Brand Performance — {periodType}</div>
         <table className="data-table">
           <thead>
             <tr>
@@ -102,9 +117,9 @@ export default function Overview({ records }) {
               <th>GMV</th>
               <th>Net Sales</th>
               <th>Net Payout</th>
+              <th>Payout on Net Sales</th>
               <th>Commission%</th>
               <th>Ads%</th>
-              <th>Net Margin%</th>
               <th>AOV</th>
             </tr>
           </thead>
@@ -121,11 +136,11 @@ export default function Overview({ records }) {
                 <td>{fINR(b.gmv)}</td>
                 <td>{fINR(b.netSales)}</td>
                 <td style={{ color: 'var(--accent-green)' }}>{fINR(b.netPayout)}</td>
+                <td style={{ color: b.netPayoutOnNetSales > 55 ? 'var(--accent-green)' : b.netPayoutOnNetSales < 40 ? 'var(--accent-red)' : 'var(--accent-gold)' }}>
+                  {fPct(b.netPayoutOnNetSales)}
+                </td>
                 <td style={{ color: b.commissionPct > 25 ? 'var(--accent-red)' : 'var(--text-primary)' }}>{fPct(b.commissionPct)}</td>
                 <td style={{ color: b.adsPct > 10 ? 'var(--accent-gold)' : 'var(--text-primary)' }}>{fPct(b.adsPct)}</td>
-                <td style={{ color: b.netMarginPct > 20 ? 'var(--accent-green)' : b.netMarginPct < 10 ? 'var(--accent-red)' : 'var(--accent-gold)' }}>
-                  {fPct(b.netMarginPct)}
-                </td>
                 <td>{fINR(b.aov)}</td>
               </tr>
             ))}
@@ -135,7 +150,8 @@ export default function Overview({ records }) {
               <td>{fINR(brands.reduce((a, b) => a + b.gmv, 0))}</td>
               <td>{fINR(brands.reduce((a, b) => a + b.netSales, 0))}</td>
               <td style={{ color: 'var(--accent-green)' }}>{fINR(brands.reduce((a, b) => a + b.netPayout, 0))}</td>
-              <td>—</td><td>—</td><td>—</td><td>—</td>
+              <td style={{ color: 'var(--accent-gold)' }}>{fPct(netPayoutOnNetSales)}</td>
+              <td>—</td><td>—</td><td>—</td>
             </tr>
           </tbody>
         </table>
@@ -144,7 +160,7 @@ export default function Overview({ records }) {
       {/* Location table */}
       <div className="section-title">All Locations (Combined Brands)</div>
       <div className="chart-card">
-        <div className="chart-card-title">Location Performance</div>
+        <div className="chart-card-title">Location Performance — {periodType}</div>
         <table className="data-table">
           <thead>
             <tr>
@@ -152,9 +168,9 @@ export default function Overview({ records }) {
               <th>Orders</th>
               <th>GMV</th>
               <th>Net Payout</th>
+              <th>Payout on Net Sales</th>
               <th>Commission%</th>
               <th>Ads%</th>
-              <th>Net Margin%</th>
               <th>AOV</th>
             </tr>
           </thead>
@@ -165,9 +181,9 @@ export default function Overview({ records }) {
                 <td>{fNum(l.deliveredOrders)}</td>
                 <td>{fINR(l.gmv)}</td>
                 <td style={{ color: 'var(--accent-green)' }}>{fINR(l.netPayout)}</td>
+                <td style={{ color: l.netPayoutOnNetSales > 55 ? 'var(--accent-green)' : 'var(--accent-gold)' }}>{fPct(l.netPayoutOnNetSales)}</td>
                 <td>{fPct(l.commissionPct)}</td>
                 <td>{fPct(l.adsPct)}</td>
-                <td style={{ color: l.netMarginPct > 20 ? 'var(--accent-green)' : 'var(--accent-gold)' }}>{fPct(l.netMarginPct)}</td>
                 <td>{fINR(l.aov)}</td>
               </tr>
             ))}

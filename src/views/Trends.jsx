@@ -22,12 +22,12 @@ const ChartTip = ({ active, payload, label }) => {
   );
 };
 
-export default function Trends({ records, brand }) {
+export default function Trends({ records, brand, periodType }) {
   const [metric, setMetric] = React.useState('gmv');
   const [locFilter, setLocFilter] = React.useState('All');
 
   const base = brand && brand !== 'All' ? records.filter(r => r.brand === brand) : records;
-  const weekly = base.filter(r => r.periodType === 'Weekly');
+  const weekly = base.filter(r => r.periodType === periodType);
   const locations = [...new Set(weekly.map(r => r.location))].filter(Boolean).sort();
 
   const filtered = locFilter === 'All' ? base : base.filter(r => r.location === locFilter);

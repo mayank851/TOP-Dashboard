@@ -46,6 +46,8 @@ export function sumRecords(records) {
   s.adsPct = s.gmv > 0 ? (s.totalAds / s.gmv) * 100 : 0;
   s.discountPct = s.gmv > 0 ? (s.discountShare / s.gmv) * 100 : 0;
   s.netMarginPct = s.gmv > 0 ? (s.netPayout / s.gmv) * 100 : 0;
+  // Net payout on net sales — better operational metric
+  s.netPayoutOnNetSales = s.netSales > 0 ? (s.netPayout / s.netSales) * 100 : 0;
   s.totalDeductions = s.commission + s.totalAds + s.tcs + s.tds + s.hyperpure + s.gstDeduction;
   return s;
 }
@@ -77,9 +79,9 @@ export function getPeriodTrend(records, periodType = 'Weekly') {
 
 // ─── Brand summary ────────────────────────────────────────────────────────────
 
-export function getBrandSummary(records) {
-  const weekly = records.filter(r => r.periodType === 'Weekly');
-  const byBrand = groupBy(weekly, r => r.brand);
+export function getBrandSummary(records, periodType = 'Weekly') {
+  const filtered = records.filter(r => r.periodType === periodType);
+  const byBrand = groupBy(filtered, r => r.brand);
   return Object.entries(byBrand).map(([brand, recs]) => ({
     brand,
     ...sumRecords(recs),
@@ -89,8 +91,8 @@ export function getBrandSummary(records) {
 
 // ─── Location summary ─────────────────────────────────────────────────────────
 
-export function getLocationSummary(records, brand = null) {
-  let recs = records.filter(r => r.periodType === 'Weekly');
+export function getLocationSummary(records, brand = null, periodType = 'Weekly') {
+  let recs = records.filter(r => r.periodType === periodType);
   if (brand && brand !== 'All') recs = recs.filter(r => r.brand === brand);
   const byLoc = groupBy(recs, r => r.location);
   return Object.entries(byLoc).map(([location, rows]) => ({
@@ -101,8 +103,8 @@ export function getLocationSummary(records, brand = null) {
 
 // ─── Platform summary ─────────────────────────────────────────────────────────
 
-export function getPlatformSummary(records, brand = null) {
-  let recs = records.filter(r => r.periodType === 'Weekly');
+export function getPlatformSummary(records, brand = null, periodType = 'Weekly') {
+  let recs = records.filter(r => r.periodType === periodType);
   if (brand && brand !== 'All') recs = recs.filter(r => r.brand === brand);
   const byPlat = groupBy(recs, r => r.platform);
   return Object.entries(byPlat).map(([platform, rows]) => ({
@@ -127,13 +129,7 @@ export function getPayoutWaterfall(totals) {
     { label: 'Cancel Charges', value: -Math.abs(cancelCharges), color: '#94a3b8' },
   ].filter(d => Math.abs(d.value) > 0);
 
-  return {
-    gmv,
-    deductions,
-    netPayout,
-    // Reconciliation: leftover after known deductions
-    other: netPayout - gmv - deductions.reduce((a, d) => a + d.value, 0),
-  };
+  return { gmv, deductions, netPayout };
 }
 
 // ─── Format helpers ───────────────────────────────────────────────────────────
@@ -175,12 +171,19 @@ export function pctChange(current, prior) {
   return ((current - prior) / Math.abs(prior)) * 100;
 }
 
-export function formatPeriod(str) {
+export function formatPeriod(str, periodType = 'Weekly') {
   if (!str) return '';
-  // "2026-02-01" → "Feb 1"
   try {
     const d = new Date(str + 'T00:00:00');
-    return d.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' });
+    if (periodType === 'Monthly') {
+      return d.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
+    }
+    // Weekly: W1 Feb 26, W2 Feb 26 etc
+    const day = d.getDate();
+    const weekNum = day <= 7 ? 1 : day <= 14 ? 2 : day <= 21 ? 3 : 4;
+    const month = d.toLocaleDateString('en-IN', { month: 'short' });
+    const yr = String(d.getFullYear()).slice(2);
+    return `W${weekNum} ${month} '${yr}`;
   } catch {
     return str;
   }

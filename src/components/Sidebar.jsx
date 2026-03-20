@@ -9,7 +9,7 @@ const NAV_ITEMS = [
   { id: 'trends',       icon: '📈', label: 'Trends' },
 ];
 
-export default function Sidebar({ activeView, setView, brand, setBrand, availableBrands, onUpload }) {
+export default function Sidebar({ activeView, setView, brand, setBrand, availableBrands, onUpload, periodType, setPeriodType }) {
   const fileRef = React.useRef();
 
   const handleFile = (e) => {
@@ -20,7 +20,6 @@ export default function Sidebar({ activeView, setView, brand, setBrand, availabl
 
   return (
     <aside className="sidebar">
-      {/* Logo */}
       <div className="sidebar-logo">
         <div className="sidebar-logo-title">
           <span className="sidebar-logo-bolt">⚡</span>
@@ -43,6 +42,35 @@ export default function Sidebar({ activeView, setView, brand, setBrand, availabl
           ))}
           {availableBrands.length > 1 && <option value="All">All Brands</option>}
         </select>
+      </div>
+
+      {/* Period type toggle */}
+      <div style={{ padding: '10px 16px 0' }}>
+        <div className="sidebar-section-label" style={{ padding: '0 2px 6px', marginTop: 0 }}>Period</div>
+        <div style={{ display: 'flex', gap: 6 }}>
+          {['Weekly', 'Monthly'].map(p => (
+            <button
+              key={p}
+              onClick={() => setPeriodType(p)}
+              style={{
+                flex: 1,
+                padding: '7px 0',
+                borderRadius: 6,
+                border: '1px solid',
+                borderColor: periodType === p ? 'var(--accent-purple)' : 'var(--border-light)',
+                background: periodType === p ? 'var(--accent-purple)' : 'transparent',
+                color: periodType === p ? '#fff' : 'var(--text-secondary)',
+                fontFamily: 'var(--font-display)',
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'all 0.15s',
+              }}
+            >
+              {p}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Navigation */}
