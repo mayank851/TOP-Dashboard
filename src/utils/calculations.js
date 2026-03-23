@@ -40,13 +40,11 @@ export function sumRecords(records) {
     s.pkgCharges += r.pkgCharges;
   });
 
-  // Derived
   s.aov = s.deliveredOrders > 0 ? s.netSales / s.deliveredOrders : 0;
-  s.commissionPct = s.gmv > 0 ? (s.commission / s.gmv) * 100 : 0;
-  s.adsPct = s.gmv > 0 ? (s.totalAds / s.gmv) * 100 : 0;
+  s.commissionPct = s.netSales > 0 ? (s.commission / s.netSales) * 100 : 0;
+  s.adsPct = s.netSales > 0 ? (s.totalAds / s.netSales) * 100 : 0;
   s.discountPct = s.gmv > 0 ? (s.discountShare / s.gmv) * 100 : 0;
   s.netMarginPct = s.gmv > 0 ? (s.netPayout / s.gmv) * 100 : 0;
-  // Net payout on net sales — better operational metric
   s.netPayoutOnNetSales = s.netSales > 0 ? (s.netPayout / s.netSales) * 100 : 0;
   s.totalDeductions = s.commission + s.totalAds + s.tcs + s.tds + s.hyperpure + s.gstDeduction;
   return s;
@@ -172,18 +170,27 @@ export function pctChange(current, prior) {
   return ((current - prior) / Math.abs(prior)) * 100;
 }
 
-export function formatPeriod(str, periodType = 'Weekly') {
+export function formatPeriod(str, periodType = 'Weekly', allPeriods = null) {
   if (!str) return '';
   try {
     const d = new Date(str + 'T00:00:00');
     if (periodType === 'Monthly') {
       return d.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
     }
-    // Weekly: W1 Feb 26, W2 Feb 26 etc
-    const day = d.getDate();
-    const weekNum = day <= 7 ? 1 : day <= 14 ? 2 : day <= 21 ? 3 : 4;
     const month = d.toLocaleDateString('en-IN', { month: 'short' });
     const yr = String(d.getFullYear()).slice(2);
+    if (allPeriods && allPeriods.length > 0) {
+      const periodsInMonth = allPeriods
+        .filter(p => {
+          const pd = new Date(p + 'T00:00:00');
+          return pd.getFullYear() === d.getFullYear() && pd.getMonth() === d.getMonth();
+        })
+        .sort();
+      const weekNum = periodsInMonth.indexOf(str) + 1;
+      return `W${weekNum > 0 ? weekNum : 1} ${month} '${yr}`;
+    }
+    const day = d.getDate();
+    const weekNum = day < 8 ? 1 : day < 15 ? 2 : day < 22 ? 3 : 4;
     return `W${weekNum} ${month} '${yr}`;
   } catch {
     return str;
