@@ -48,7 +48,7 @@ export default function Overview({ records, periodType }) {
     gmvChange: gmvChange != null ? fPct(gmvChange) : 'N/A',
     brands: brands.map(b => ({
       brand: b.brand, gmv: fINR(b.gmv, true), netPayout: fINR(b.netPayout, true),
-      commissionPct: fPct(b.commissionPct), adsPct: fPct(b.adsPct),
+      platformFeesPct: fPct(b.platformFeesPct), adsPct: fPct(b.adsPct),
       discountPct: fPct(b.discountPct), netPayoutOnNetSales: fPct(b.netPayoutOnNetSales),
     })),
     locations: allLoc.map(l => ({
@@ -134,7 +134,7 @@ export default function Overview({ records, periodType }) {
           <thead>
             <tr>
               <th>Brand</th><th>Orders</th><th>GMV</th><th>Net Sales</th>
-              <th>Net Payout</th><th>Payout/NS%</th><th>Commission%</th>
+              <th>Net Payout</th><th>Payout/NS%</th><th>Platform Fees%</th>
               <th>Ads%</th><th>Discount%</th><th>AOV</th>
             </tr>
           </thead>
@@ -152,7 +152,7 @@ export default function Overview({ records, periodType }) {
                 <td>{fINR(b.netSales)}</td>
                 <td style={{ color: 'var(--accent-green)' }}>{fINR(b.netPayout)}</td>
                 <td style={{ color: b.netPayoutOnNetSales > 55 ? 'var(--accent-green)' : b.netPayoutOnNetSales < 40 ? 'var(--accent-red)' : 'var(--accent-gold)' }}>{fPct(b.netPayoutOnNetSales)}</td>
-                <td style={{ color: b.commissionPct > 25 ? 'var(--accent-red)' : 'var(--text-primary)' }}>{fPct(b.commissionPct)}</td>
+                <td style={{ color: b.platformFeesPct > 35 ? 'var(--accent-red)' : 'var(--text-primary)' }}>{fPct(b.platformFeesPct)}</td>
                 <td style={{ color: b.adsPct > 10 ? 'var(--accent-gold)' : 'var(--text-primary)' }}>{fPct(b.adsPct)}</td>
                 <td style={{ color: b.discountPct > 25 ? 'var(--accent-red)' : 'var(--text-primary)' }}>{fPct(b.discountPct)}</td>
                 <td>{fINR(b.aov)}</td>
@@ -178,7 +178,7 @@ export default function Overview({ records, periodType }) {
         <div className="chart-card-title">Location Performance — {periodType}</div>
         <table className="data-table">
           <thead>
-            <tr><th>Location</th><th>Orders</th><th>GMV</th><th>Net Payout</th><th>Payout/NS%</th><th>Commission%</th><th>Ads%</th><th>Discount%</th><th>AOV</th></tr>
+            <tr><th>Location</th><th>Orders</th><th>GMV</th><th>Net Payout</th><th>Payout/NS%</th><th>Platform Fees%</th><th>Ads%</th><th>Discount%</th><th>AOV</th></tr>
           </thead>
           <tbody>
             {allLoc.map(l => (
@@ -188,7 +188,7 @@ export default function Overview({ records, periodType }) {
                 <td>{fINR(l.gmv)}</td>
                 <td style={{ color: 'var(--accent-green)' }}>{fINR(l.netPayout)}</td>
                 <td style={{ color: l.netPayoutOnNetSales > 55 ? 'var(--accent-green)' : 'var(--accent-gold)' }}>{fPct(l.netPayoutOnNetSales)}</td>
-                <td>{fPct(l.commissionPct)}</td>
+                <td style={{ color: l.platformFeesPct > 35 ? 'var(--accent-red)' : 'var(--text-primary)' }}>{fPct(l.platformFeesPct)}</td>
                 <td>{fPct(l.adsPct)}</td>
                 <td style={{ color: l.discountPct > 25 ? 'var(--accent-red)' : 'var(--text-primary)' }}>{fPct(l.discountPct)}</td>
                 <td>{fINR(l.aov)}</td>
