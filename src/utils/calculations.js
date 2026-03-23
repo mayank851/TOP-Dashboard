@@ -9,8 +9,6 @@ export function filterRecords(records, { brand, location, platform, periodType }
   return r;
 }
 
-// ─── Aggregation ─────────────────────────────────────────────────────────────
-
 export function sumRecords(records) {
   const s = {
     deliveredOrders: 0, cancelledOrders: 0, gmv: 0, netSales: 0,
@@ -41,16 +39,14 @@ export function sumRecords(records) {
   });
 
   s.aov = s.deliveredOrders > 0 ? s.netSales / s.deliveredOrders : 0;
-  s.commissionPct = s.netSales > 0 ? (s.commission / s.netSales) * 100 : 0;
   s.adsPct = s.netSales > 0 ? (s.totalAds / s.netSales) * 100 : 0;
   s.discountPct = s.gmv > 0 ? (s.discountShare / s.gmv) * 100 : 0;
   s.netMarginPct = s.gmv > 0 ? (s.netPayout / s.gmv) * 100 : 0;
   s.netPayoutOnNetSales = s.netSales > 0 ? (s.netPayout / s.netSales) * 100 : 0;
-  s.totalDeductions = s.commission + s.totalAds + s.tcs + s.tds + s.hyperpure + s.gstDeduction;
+  s.platformFeesPct = s.netSales > 0 ? (s.platformFees / s.netSales) * 100 : 0;
+  s.totalDeductions = s.platformFees + s.totalAds + s.tcs + s.tds + s.hyperpure + s.gstDeduction;
   return s;
 }
-
-// ─── Group by a key ──────────────────────────────────────────────────────────
 
 export function groupBy(records, keyFn) {
   const map = {};
@@ -62,76 +58,56 @@ export function groupBy(records, keyFn) {
   return map;
 }
 
-// ─── Period trend ─────────────────────────────────────────────────────────────
-
 export function getPeriodTrend(records, periodType = 'Weekly') {
   const filtered = records.filter(r => r.periodType === periodType);
   const byPeriod = groupBy(filtered, r => r.periodStart);
   return Object.entries(byPeriod)
-    .map(([period, recs]) => {
-      const s = sumRecords(recs);
-      return { period, ...s };
-    })
+    .map(([period, recs]) => ({ period, ...sumRecords(recs) }))
     .sort((a, b) => a.period.localeCompare(b.period));
 }
-
-// ─── Brand summary ────────────────────────────────────────────────────────────
 
 export function getBrandSummary(records, periodType = 'Weekly') {
   const filtered = records.filter(r => r.periodType === periodType);
   const byBrand = groupBy(filtered, r => r.brand);
   return Object.entries(byBrand).map(([brand, recs]) => ({
-    brand,
-    ...sumRecords(recs),
+    brand, ...sumRecords(recs),
     periods: [...new Set(recs.map(r => r.periodStart))].length,
   })).sort((a, b) => b.gmv - a.gmv);
 }
-
-// ─── Location summary ─────────────────────────────────────────────────────────
 
 export function getLocationSummary(records, brand = null, periodType = 'Weekly') {
   let recs = records.filter(r => r.periodType === periodType);
   if (brand && brand !== 'All') recs = recs.filter(r => r.brand === brand);
   const byLoc = groupBy(recs, r => r.location);
   return Object.entries(byLoc).map(([location, rows]) => ({
-    location,
-    ...sumRecords(rows),
+    location, ...sumRecords(rows),
   })).sort((a, b) => b.gmv - a.gmv);
 }
-
-// ─── Platform summary ─────────────────────────────────────────────────────────
 
 export function getPlatformSummary(records, brand = null, periodType = 'Weekly') {
   let recs = records.filter(r => r.periodType === periodType);
   if (brand && brand !== 'All') recs = recs.filter(r => r.brand === brand);
   const byPlat = groupBy(recs, r => r.platform);
   return Object.entries(byPlat).map(([platform, rows]) => ({
-    platform,
-    ...sumRecords(rows),
+    platform, ...sumRecords(rows),
   })).sort((a, b) => b.gmv - a.gmv);
 }
 
-// ─── Payout waterfall ─────────────────────────────────────────────────────────
-
 export function getPayoutWaterfall(totals) {
-  const { gmv, commission, totalAds, gstDeduction, tcs, tds, hyperpure,
+  const { gmv, totalAds, gstDeduction, tcs, tds, hyperpure,
           platformFees, cancelCharges, netPayout, discountShare } = totals;
   const deductions = [
     { label: 'Discounts', value: -Math.abs(discountShare || 0), color: '#e879f9' },
-    { label: 'Commission', value: -Math.abs(commission), color: '#f87171' },
+    { label: 'Platform Fees (incl. Commission)', value: -Math.abs(platformFees), color: '#f87171' },
     { label: 'Ad Spend', value: -Math.abs(totalAds), color: '#fb923c' },
     { label: 'GST Deduction', value: -Math.abs(gstDeduction), color: '#fbbf24' },
     { label: 'TCS', value: -Math.abs(tcs), color: '#a78bfa' },
     { label: 'TDS', value: -Math.abs(tds), color: '#818cf8' },
     { label: 'Hyperpure', value: -Math.abs(hyperpure), color: '#60a5fa' },
-    { label: 'Platform Fees', value: -Math.abs(platformFees), color: '#34d399' },
     { label: 'Cancel Charges', value: -Math.abs(cancelCharges), color: '#94a3b8' },
   ].filter(d => Math.abs(d.value) > 0);
-
   return { gmv, deductions, netPayout };
 }
-
-// ─── Format helpers ───────────────────────────────────────────────────────────
 
 export function fINR(val, compact = false) {
   const abs = Math.abs(val);
@@ -150,19 +126,6 @@ export function fPct(val, decimals = 1) {
 
 export function fNum(val) {
   return Math.round(val).toLocaleString('en-IN');
-}
-
-export function changeSign(val) {
-  if (val > 0.05) return 'pos';
-  if (val < -0.05) return 'neg';
-  return 'neu';
-}
-
-export function changeArrow(val, positiveIsGood = true) {
-  const isPos = val > 0;
-  const isGood = positiveIsGood ? isPos : !isPos;
-  const arrow = isPos ? '▲' : '▼';
-  return { arrow, cls: isGood ? 'pos' : 'neg' };
 }
 
 export function pctChange(current, prior) {
