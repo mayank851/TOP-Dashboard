@@ -50,17 +50,15 @@ export default function TopIntelligence({ records, brand, periodType }) {
   const currentBrand = brand || 'TOP';
   const periodLabel = periodType === 'Monthly' ? 'month' : 'week';
 
-  // All periods available for this brand
   const allBrandRecs = filterRecords(records, { brand: currentBrand, periodType });
   const sortedPeriods = [...new Set(allBrandRecs.map(r => r.periodStart))].sort();
   const latestPeriod = sortedPeriods[sortedPeriods.length - 1];
   const priorPeriod = sortedPeriods[sortedPeriods.length - 2];
+  const allPeriodStarts = [...new Set(records.filter(r => r.brand === currentBrand && r.periodType === periodType).map(r => r.periodStart))].sort();
 
-  // Period selector — defaults to latest
   const [selectedPeriod, setSelectedPeriod] = React.useState('latest');
   const activePeriod = selectedPeriod === 'latest' ? latestPeriod : selectedPeriod;
 
-  // Records for the selected period, filtered by loc + plat
   const currentRecs = filterRecords(records, {
     brand: currentBrand,
     location: loc !== 'All' ? loc : undefined,
@@ -83,7 +81,6 @@ export default function TopIntelligence({ records, brand, periodType }) {
   const netChange = priorTotals ? pctChange(totals.netPayout, priorTotals.netPayout) : null;
   const nsChange = priorTotals ? pctChange(totals.netPayoutOnNetSales, priorTotals.netPayoutOnNetSales) : null;
 
-  // Trend — all periods, filtered by loc+plat
   const trendBase = filterRecords(records, {
     brand: currentBrand,
     location: loc !== 'All' ? loc : undefined,
@@ -91,13 +88,12 @@ export default function TopIntelligence({ records, brand, periodType }) {
   });
   const trendData = getPeriodTrend(trendBase, periodType).map(t => ({
     ...t,
-    period: formatPeriod(t.period, periodType),
+    period: formatPeriod(t.period, periodType, allPeriodStarts),
     commissionPct: +t.commissionPct.toFixed(1),
     adsPct: +t.adsPct.toFixed(1),
     netPayoutOnNetSales: +t.netPayoutOnNetSales.toFixed(1),
   }));
 
-  // Location + platform tables — filtered only by the other dimension
   const locSummary = getLocationSummary(
     filterRecords(records, { brand: currentBrand, platform: plat !== 'All' ? plat : undefined }).filter(r => r.periodStart === activePeriod),
     null, periodType
@@ -108,7 +104,6 @@ export default function TopIntelligence({ records, brand, periodType }) {
   );
 
   const waterfall = getPayoutWaterfall(totals);
-
   const brandLocs = ['All', ...new Set(allBrandRecs.map(r => r.location))].filter(Boolean);
   const brandPlats = ['All', ...new Set(allBrandRecs.map(r => r.platform))].filter(Boolean);
 
@@ -119,17 +114,13 @@ export default function TopIntelligence({ records, brand, periodType }) {
           <div>
             <div className="view-title">🏆 {currentBrand} Intelligence</div>
             <div className="view-subtitle">
-              Showing: <strong style={{ color: 'var(--text-primary)' }}>{formatPeriod(activePeriod, periodType)}</strong>
-              {priorTotals && <span> · vs {formatPeriod(priorPeriod, periodType)}</span>}
+              Showing: <strong style={{ color: 'var(--text-primary)' }}>{formatPeriod(activePeriod, periodType, allPeriodStarts)}</strong>
+              {priorTotals && <span> · vs {formatPeriod(priorPeriod, periodType, allPeriodStarts)}</span>}
               {' '}· {sortedPeriods.length} {periodLabel}s in tracker
             </div>
           </div>
-          {/* Period selector */}
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end', maxWidth: 480 }}>
-            <button
-              className={`pill pill-sm${selectedPeriod === 'latest' ? ' active' : ''}`}
-              onClick={() => setSelectedPeriod('latest')}
-            >
+            <button className={`pill pill-sm${selectedPeriod === 'latest' ? ' active' : ''}`} onClick={() => setSelectedPeriod('latest')}>
               Latest
             </button>
             {[...sortedPeriods].reverse().slice(0, 6).map(p => (
@@ -138,14 +129,13 @@ export default function TopIntelligence({ records, brand, periodType }) {
                 className={`pill pill-sm${selectedPeriod === p && selectedPeriod !== 'latest' ? ' active' : ''}`}
                 onClick={() => setSelectedPeriod(p)}
               >
-                {formatPeriod(p, periodType)}
+                {formatPeriod(p, periodType, allPeriodStarts)}
               </button>
             ))}
           </div>
         </div>
       </div>
 
-      {/* Filters */}
       <div className="filter-row">
         <span className="filter-label">Location</span>
         {brandLocs.map(l => (
@@ -157,8 +147,7 @@ export default function TopIntelligence({ records, brand, periodType }) {
         ))}
       </div>
 
-      {/* KPI Row 1 — current period */}
-      <div className="section-title" style={{ marginTop: 0 }}>Revenue & Volume — {formatPeriod(activePeriod, periodType)}</div>
+      <div className="section-title" style={{ marginTop: 0 }}>Revenue & Volume — {formatPeriod(activePeriod, periodType, allPeriodStarts)}</div>
       <div className="kpi-grid kpi-grid-5" style={{ marginBottom: 12 }}>
         <KPICard label="GMV" value={fINR(totals.gmv, true)} color="purple" changePct={gmvChange} sub={`vs prior ${periodLabel}`} />
         <KPICard label="Net Payout" value={fINR(totals.netPayout, true)} color="green" changePct={netChange} sub={`vs prior ${periodLabel}`} />
@@ -167,7 +156,6 @@ export default function TopIntelligence({ records, brand, periodType }) {
         <KPICard label="AOV" value={fINR(totals.aov)} color="gold" sub="Avg order value" />
       </div>
 
-      {/* Prior period comparison row */}
       {priorTotals && (
         <div style={{
           background: 'var(--bg-surface)', border: '1px solid var(--border)',
@@ -175,7 +163,7 @@ export default function TopIntelligence({ records, brand, periodType }) {
           display: 'flex', gap: 32, flexWrap: 'wrap',
         }}>
           <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, alignSelf: 'center', marginRight: 8 }}>
-            Prior {periodLabel} ({formatPeriod(priorPeriod, periodType)})
+            Prior {periodLabel} ({formatPeriod(priorPeriod, periodType, allPeriodStarts)})
           </div>
           {[
             { l: 'GMV', v: fINR(priorTotals.gmv, true) },
@@ -192,20 +180,18 @@ export default function TopIntelligence({ records, brand, periodType }) {
         </div>
       )}
 
-      {/* KPI Row 2 - Unit Economics */}
       <div className="section-title">Unit Economics</div>
-      <div className="kpi-grid kpi-grid-5" style={{ marginBottom: 24 }}>
+      <div className="kpi-grid kpi-grid-5" style={{ marginBottom: 12 }}>
         <KPICard label="Payout on Net Sales" value={fPct(totals.netPayoutOnNetSales)} color={totals.netPayoutOnNetSales > 55 ? 'green' : totals.netPayoutOnNetSales < 40 ? 'red' : 'gold'} changePct={nsChange} sub={`vs prior ${periodLabel}`} />
         <KPICard label="Net Margin % (on GMV)" value={fPct(totals.netMarginPct)} color={totals.netMarginPct > 40 ? 'green' : totals.netMarginPct < 30 ? 'red' : 'gold'} sub="Net payout / GMV" />
-        <KPICard label="Commission %" value={fPct(totals.commissionPct)} color={totals.commissionPct > 28 ? 'red' : 'orange'} sub="of GMV" badge={totals.commissionPct > 28 ? 'HIGH' : null} />
-        <KPICard label="Ads %" value={fPct(totals.adsPct)} color={totals.adsPct > 12 ? 'red' : totals.adsPct > 8 ? 'gold' : 'teal'} sub="of GMV" badge={totals.adsPct > 12 ? 'MONITOR' : null} />
-        <KPICard label="TDS + TCS" value={fINR(totals.tds + totals.tcs, true)} color="purple" sub="Tax deductions" small />
-      </div>
-      <div className="kpi-grid kpi-grid-5" style={{ marginBottom: 24 }}>
+        <KPICard label="Commission % (on NS)" value={fPct(totals.commissionPct)} color={totals.commissionPct > 20 ? 'red' : 'orange'} sub="of Net Sales" badge={totals.commissionPct > 20 ? 'HIGH' : null} />
+        <KPICard label="Ads % (on NS)" value={fPct(totals.adsPct)} color={totals.adsPct > 10 ? 'red' : totals.adsPct > 6 ? 'gold' : 'teal'} sub="of Net Sales" badge={totals.adsPct > 10 ? 'MONITOR' : null} />
         <KPICard label="Discount % of GMV" value={fPct(totals.discountPct)} color={totals.discountPct > 25 ? 'red' : totals.discountPct > 20 ? 'gold' : 'teal'} sub="Platform discount share" badge={totals.discountPct > 25 ? 'HIGH' : null} />
       </div>
+      <div className="kpi-grid kpi-grid-5" style={{ marginBottom: 24 }}>
+        <KPICard label="TDS + TCS" value={fINR(totals.tds + totals.tcs, true)} color="purple" sub="Tax deductions" small />
+      </div>
 
-      {/* Revenue trend — all periods */}
       <div className="section-title">Revenue Trend — All Periods</div>
       <div className="chart-card" style={{ marginBottom: 12 }}>
         <div className="chart-card-title">GMV & Net Payout — {periodType}</div>
@@ -240,8 +226,7 @@ export default function TopIntelligence({ records, brand, periodType }) {
         </ResponsiveContainer>
       </div>
 
-      {/* Platform + Location for selected period */}
-      <div className="section-title">Platform & Location — {formatPeriod(activePeriod, periodType)}</div>
+      <div className="section-title">Platform & Location — {formatPeriod(activePeriod, periodType, allPeriodStarts)}</div>
       <div className="chart-row chart-row-2">
         <div className="chart-card">
           <div className="chart-card-title">By Platform</div>
@@ -283,8 +268,7 @@ export default function TopIntelligence({ records, brand, periodType }) {
         </div>
       </div>
 
-      {/* Waterfall */}
-      <div className="section-title">Payout Waterfall — {formatPeriod(activePeriod, periodType)}</div>
+      <div className="section-title">Payout Waterfall — {formatPeriod(activePeriod, periodType, allPeriodStarts)}</div>
       <div className="chart-card">
         <div className="chart-card-title">How GMV becomes Net Payout — deduction breakdown</div>
         <WaterfallDisplay waterfall={waterfall} />
@@ -292,7 +276,7 @@ export default function TopIntelligence({ records, brand, periodType }) {
 
       <FounderInsights
         data={{
-          period: formatPeriod(activePeriod, periodType),
+          period: formatPeriod(activePeriod, periodType, allPeriodStarts),
           brand: currentBrand,
           gmv: fINR(totals.gmv, true),
           netPayout: fINR(totals.netPayout, true),
@@ -308,7 +292,7 @@ export default function TopIntelligence({ records, brand, periodType }) {
           platformSplit: platSummary.map(p => ({ platform: p.platform, gmv: fINR(p.gmv, true), netPayoutOnNetSales: fPct(p.netPayoutOnNetSales) })),
           locationSplit: locSummary.map(l => ({ location: l.location, gmv: fINR(l.gmv, true), netPayoutOnNetSales: fPct(l.netPayoutOnNetSales) })),
         }}
-        context={`TOP Intelligence — ${periodType} view for ${currentBrand}. Current period: ${formatPeriod(activePeriod, periodType)}. This is the primary brand for Seed/Series A investor discussions.`}
+        context={`TOP Intelligence — ${periodType} view for ${currentBrand}. Current period: ${formatPeriod(activePeriod, periodType, allPeriodStarts)}. Primary brand for Seed/Series A investor discussions.`}
       />
     </div>
   );
@@ -343,5 +327,3 @@ function WaterfallDisplay({ waterfall }) {
     </div>
   );
 }
-
-// Note: FounderInsights is imported and used at bottom of component
