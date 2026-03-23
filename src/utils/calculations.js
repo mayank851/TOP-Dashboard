@@ -133,6 +133,92 @@ export function pctChange(current, prior) {
   return ((current - prior) / Math.abs(prior)) * 100;
 }
 
+export function getEffectiveTakeRate(totals) {
+  const { gmv, platformFees, totalAds, gstDeduction } = totals;
+  return gmv > 0 ? ((platformFees + totalAds + gstDeduction) / gmv) * 100 : 0;
+}
+
+export function getPerOrderMetrics(totals) {
+  const { deliveredOrders: orders, gmv, platformFees, totalAds, netPayout, discountShare, tds, tcs } = totals;
+  if (!orders) return null;
+  return {
+    gmvPerOrder: gmv / orders,
+    platformFeesPerOrder: platformFees / orders,
+    adsPerOrder: totalAds / orders,
+    netPayoutPerOrder: netPayout / orders,
+    discountPerOrder: discountShare / orders,
+    taxPerOrder: (tds + tcs) / orders,
+  };
+}
+
+export const LOCATION_LAUNCH_DATES = {
+  HSR: '2024-11-01',
+  MTH: '2025-04-01',
+  BTM: '2025-12-01',
+  IND: '2026-01-01',
+};
+
+export function getWeeksSinceLaunch(periodStart, location) {
+  const launch = LOCATION_LAUNCH_DATES[location];
+  if (!launch) return null;
+  const launchDate = new Date(launch + 'T00:00:00');
+  const periodDate = new Date(periodStart + 'T00:00:00');
+  const diff = (periodDate - launchDate) / (7 * 24 * 60 * 60 * 1000);
+  return Math.round(diff) + 1;
+}
+
+export function getCohortData(records, brand = 'TOP') {
+  const weekly = records.filter(r => r.periodType === 'Weekly' && r.brand === brand);
+  const locations = Object.keys(LOCATION_LAUNCH_DATES);
+  const result = {};
+  locations.forEach(loc => {
+    const locRecs = weekly.filter(r => r.location === loc);
+    const byPeriod = groupBy(locRecs, r => r.periodStart);
+    result[loc] = Object.entries(byPeriod)
+      .map(([period, recs]) => {
+        const s = sumRecords(recs);
+        const weekNum = getWeeksSinceLaunch(period, loc);
+        return { period, weekNum, location: loc, ...s };
+      })
+      .filter(r => r.weekNum > 0)
+      .sort((a, b) => a.weekNum - b.weekNum);
+  });
+  return result;
+}
+
+export function getWeekOfMonthPattern(records, brand = 'TOP') {
+  const weekly = records.filter(r => r.periodType === 'Weekly' && r.brand === brand);
+  const byWeekNum = { 1: [], 2: [], 3: [], 4: [] };
+  weekly.forEach(r => {
+    const d = new Date(r.periodStart + 'T00:00:00');
+    const day = d.getDate();
+    const wk = day < 8 ? 1 : day < 15 ? 2 : day < 22 ? 3 : 4;
+    byWeekNum[wk].push(r);
+  });
+  return Object.entries(byWeekNum).map(([wk, recs]) => {
+    if (!recs.length) return { week: `W${wk} of month`, avgGMV: 0, avgOrders: 0, avgNetPayout: 0, count: 0 };
+    const byPeriod = groupBy(recs, r => r.periodStart);
+    const periodTotals = Object.values(byPeriod).map(p => sumRecords(p));
+    return {
+      week: `W${wk} of month`,
+      avgGMV: periodTotals.reduce((a, b) => a + b.gmv, 0) / periodTotals.length,
+      avgOrders: periodTotals.reduce((a, b) => a + b.deliveredOrders, 0) / periodTotals.length,
+      avgNetPayout: periodTotals.reduce((a, b) => a + b.netPayout, 0) / periodTotals.length,
+      count: periodTotals.length,
+    };
+  });
+}
+
+export function getDiscountOrdersCorrelation(records, brand = 'TOP') {
+  const trend = getPeriodTrend(records.filter(r => r.brand === brand), 'Weekly');
+  return trend.map(t => ({
+    period: t.period,
+    discountPct: +t.discountPct.toFixed(1),
+    deliveredOrders: t.deliveredOrders,
+    gmv: t.gmv,
+  }));
+}
+
 export function formatPeriod(str, periodType = 'Weekly', allPeriods = null) {
   if (!str) return '';
   try {
