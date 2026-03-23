@@ -54,7 +54,7 @@ export default function TopIntelligence({ records, brand, periodType }) {
   const sortedPeriods = [...new Set(allBrandRecs.map(r => r.periodStart))].sort();
   const latestPeriod = sortedPeriods[sortedPeriods.length - 1];
   const priorPeriod = sortedPeriods[sortedPeriods.length - 2];
-  const allPeriodStarts = [...new Set(records.filter(r => r.brand === currentBrand && r.periodType === periodType).map(r => r.periodStart))].sort();
+  const allPeriodStarts = [...new Set(records.filter(r => r.brand === currentBrand).map(r => r.periodStart))].sort();
 
   const [selectedPeriod, setSelectedPeriod] = React.useState('latest');
   const activePeriod = selectedPeriod === 'latest' ? latestPeriod : selectedPeriod;
@@ -89,7 +89,7 @@ export default function TopIntelligence({ records, brand, periodType }) {
   const trendData = getPeriodTrend(trendBase, periodType).map(t => ({
     ...t,
     period: formatPeriod(t.period, periodType, allPeriodStarts),
-    commissionPct: +t.commissionPct.toFixed(1),
+    platformFeesPct: +t.platformFeesPct.toFixed(1),
     adsPct: +t.adsPct.toFixed(1),
     netPayoutOnNetSales: +t.netPayoutOnNetSales.toFixed(1),
   }));
@@ -120,15 +120,9 @@ export default function TopIntelligence({ records, brand, periodType }) {
             </div>
           </div>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end', maxWidth: 480 }}>
-            <button className={`pill pill-sm${selectedPeriod === 'latest' ? ' active' : ''}`} onClick={() => setSelectedPeriod('latest')}>
-              Latest
-            </button>
+            <button className={`pill pill-sm${selectedPeriod === 'latest' ? ' active' : ''}`} onClick={() => setSelectedPeriod('latest')}>Latest</button>
             {[...sortedPeriods].reverse().slice(0, 6).map(p => (
-              <button
-                key={p}
-                className={`pill pill-sm${selectedPeriod === p && selectedPeriod !== 'latest' ? ' active' : ''}`}
-                onClick={() => setSelectedPeriod(p)}
-              >
+              <button key={p} className={`pill pill-sm${selectedPeriod === p && selectedPeriod !== 'latest' ? ' active' : ''}`} onClick={() => setSelectedPeriod(p)}>
                 {formatPeriod(p, periodType, allPeriodStarts)}
               </button>
             ))}
@@ -171,6 +165,7 @@ export default function TopIntelligence({ records, brand, periodType }) {
             { l: 'Orders', v: fNum(priorTotals.deliveredOrders) },
             { l: 'AOV', v: fINR(priorTotals.aov) },
             { l: 'Payout/NS%', v: fPct(priorTotals.netPayoutOnNetSales) },
+            { l: 'PlatFees%', v: fPct(priorTotals.platformFeesPct) },
           ].map(m => (
             <div key={m.l}>
               <div style={{ fontSize: 9, color: 'var(--text-muted)', letterSpacing: 1, textTransform: 'uppercase' }}>{m.l}</div>
@@ -184,7 +179,7 @@ export default function TopIntelligence({ records, brand, periodType }) {
       <div className="kpi-grid kpi-grid-5" style={{ marginBottom: 12 }}>
         <KPICard label="Payout on Net Sales" value={fPct(totals.netPayoutOnNetSales)} color={totals.netPayoutOnNetSales > 55 ? 'green' : totals.netPayoutOnNetSales < 40 ? 'red' : 'gold'} changePct={nsChange} sub={`vs prior ${periodLabel}`} />
         <KPICard label="Net Margin % (on GMV)" value={fPct(totals.netMarginPct)} color={totals.netMarginPct > 40 ? 'green' : totals.netMarginPct < 30 ? 'red' : 'gold'} sub="Net payout / GMV" />
-        <KPICard label="Commission % (on NS)" value={fPct(totals.commissionPct)} color={totals.commissionPct > 20 ? 'red' : 'orange'} sub="of Net Sales" badge={totals.commissionPct > 20 ? 'HIGH' : null} />
+        <KPICard label="Platform Fees % (on NS)" value={fPct(totals.platformFeesPct)} color={totals.platformFeesPct > 35 ? 'red' : totals.platformFeesPct > 28 ? 'gold' : 'orange'} sub="incl. commission" badge={totals.platformFeesPct > 35 ? 'HIGH' : null} />
         <KPICard label="Ads % (on NS)" value={fPct(totals.adsPct)} color={totals.adsPct > 10 ? 'red' : totals.adsPct > 6 ? 'gold' : 'teal'} sub="of Net Sales" badge={totals.adsPct > 10 ? 'MONITOR' : null} />
         <KPICard label="Discount % of GMV" value={fPct(totals.discountPct)} color={totals.discountPct > 25 ? 'red' : totals.discountPct > 20 ? 'gold' : 'teal'} sub="Platform discount share" badge={totals.discountPct > 25 ? 'HIGH' : null} />
       </div>
@@ -211,7 +206,7 @@ export default function TopIntelligence({ records, brand, periodType }) {
       </div>
 
       <div className="chart-card" style={{ marginBottom: 12 }}>
-        <div className="chart-card-title">Commission% · Ads% · Payout on Net Sales% — trend</div>
+        <div className="chart-card-title">Platform Fees% · Ads% · Payout on Net Sales% — trend</div>
         <ResponsiveContainer width="100%" height={200}>
           <LineChart data={trendData}>
             <CartesianGrid stroke="rgba(255,255,255,0.03)" strokeDasharray="3 3" />
@@ -219,7 +214,7 @@ export default function TopIntelligence({ records, brand, periodType }) {
             <YAxis tick={{ fill: '#6272a4', fontSize: 11, fontFamily: 'var(--font-mono)' }} axisLine={false} tickLine={false} tickFormatter={v => `${v}%`} />
             <Tooltip content={<ChartTooltip />} />
             <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12, color: '#8892c4' }} />
-            <Line type="monotone" dataKey="commissionPct" name="Commission%" stroke="#f87171" strokeWidth={2} dot={{ r: 3 }} />
+            <Line type="monotone" dataKey="platformFeesPct" name="Platform Fees%" stroke="#f87171" strokeWidth={2} dot={{ r: 3 }} />
             <Line type="monotone" dataKey="adsPct" name="Ads%" stroke="#fb923c" strokeWidth={2} dot={{ r: 3 }} />
             <Line type="monotone" dataKey="netPayoutOnNetSales" name="Payout/NS%" stroke="#4ade80" strokeWidth={2.5} dot={{ r: 4 }} />
           </LineChart>
@@ -283,7 +278,7 @@ export default function TopIntelligence({ records, brand, periodType }) {
           orders: fNum(totals.deliveredOrders),
           aov: fINR(totals.aov),
           netPayoutOnNetSalesPct: fPct(totals.netPayoutOnNetSales),
-          commissionPct: fPct(totals.commissionPct),
+          platformFeesPct: fPct(totals.platformFeesPct),
           adsPct: fPct(totals.adsPct),
           discountPct: fPct(totals.discountPct),
           gmvChange: gmvChange != null ? fPct(gmvChange) : 'N/A',
