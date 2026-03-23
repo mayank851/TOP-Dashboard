@@ -32,9 +32,10 @@ export default function Trends({ records, brand, periodType }) {
   const locations = [...new Set(weekly.map(r => r.location))].filter(Boolean).sort();
 
   const filtered = locFilter === 'All' ? base : base.filter(r => r.location === locFilter);
-  const trend = getPeriodTrend(filtered).map(t => ({
+  const allPeriodStarts = [...new Set(base.filter(r => r.periodType === periodType).map(r => r.periodStart))].sort();
+  const trend = getPeriodTrend(filtered, periodType).map(t => ({
     ...t,
-    period: formatPeriod(t.period),
+    period: formatPeriod(t.period, periodType, allPeriodStarts),
     commissionPct: +t.commissionPct.toFixed(2),
     adsPct: +t.adsPct.toFixed(2),
     netMarginPct: +t.netMarginPct.toFixed(2),
@@ -42,24 +43,21 @@ export default function Trends({ records, brand, periodType }) {
     aov: +t.aov.toFixed(0),
   }));
 
-  // Multi-location trend
   const multiLocTrend = (() => {
     const byPeriod = {};
     weekly.forEach(r => {
-      const p = formatPeriod(r.periodStart);
+      const p = formatPeriod(r.periodStart, periodType, allPeriodStarts);
       if (!byPeriod[p]) byPeriod[p] = { period: p };
     });
-
     locations.forEach(l => {
       const locRecords = base.filter(r => r.location === l);
-      const locTrend = getPeriodTrend(locRecords);
+      const locTrend = getPeriodTrend(locRecords, periodType);
       locTrend.forEach(t => {
-        const p = formatPeriod(t.period);
+        const p = formatPeriod(t.period, periodType, allPeriodStarts);
         if (!byPeriod[p]) byPeriod[p] = { period: p };
         byPeriod[p][l] = t.gmv;
       });
     });
-
     return Object.values(byPeriod).sort((a, b) => a.period.localeCompare(b.period));
   })();
 
@@ -79,7 +77,7 @@ export default function Trends({ records, brand, periodType }) {
     <div className="content-area">
       <div className="view-header">
         <div className="view-title">📈 Trends</div>
-        <div className="view-subtitle">{brand && brand !== 'All' ? brand : 'All Brands'} · period-over-period trend analysis</div>
+        <div className="view-subtitle">{brand && brand !== 'All' ? brand : 'All Brands'} · {periodType} · period-over-period trend analysis</div>
       </div>
 
       <div className="filter-row">
@@ -98,9 +96,8 @@ export default function Trends({ records, brand, periodType }) {
         ))}
       </div>
 
-      {/* Main trend chart */}
       <div className="section-title" style={{ marginTop: 8 }}>
-        {METRIC_OPTIONS.find(m => m.key === metric)?.label} — Weekly Trend
+        {METRIC_OPTIONS.find(m => m.key === metric)?.label} — {periodType} Trend
       </div>
       <div className="chart-card">
         <div className="chart-card-title">
@@ -134,7 +131,6 @@ export default function Trends({ records, brand, periodType }) {
         </ResponsiveContainer>
       </div>
 
-      {/* Multi-metric overlay */}
       <div className="section-title">Unit Economics Overlay</div>
       <div className="chart-card">
         <div className="chart-card-title">Commission% vs Ads% vs Net Margin% — trend comparison</div>
@@ -152,10 +148,9 @@ export default function Trends({ records, brand, periodType }) {
         </ResponsiveContainer>
       </div>
 
-      {/* Multi-location GMV trend */}
       {locations.length > 1 && (
         <>
-          <div className="section-title">GMV by Location — Weekly</div>
+          <div className="section-title">GMV by Location — {periodType}</div>
           <div className="chart-card">
             <div className="chart-card-title">Each location's contribution over time</div>
             <ResponsiveContainer width="100%" height={220}>
@@ -174,7 +169,7 @@ export default function Trends({ records, brand, periodType }) {
         </>
       )}
 
-<FounderInsights
+      <FounderInsights
         data={{
           brand: brand || 'All',
           periodType,
