@@ -65,8 +65,8 @@ export function groupBy(records, keyFn) {
 // ─── Period trend ─────────────────────────────────────────────────────────────
 
 export function getPeriodTrend(records, periodType = 'Weekly') {
-  const weekly = records.filter(r => r.periodType === periodType);
-  const byPeriod = groupBy(weekly, r => r.periodStart);
+  const filtered = records.filter(r => r.periodType === periodType);
+  const byPeriod = groupBy(filtered, r => r.periodStart);
   return Object.entries(byPeriod)
     .map(([period, recs]) => {
       const s = sumRecords(recs);
@@ -179,16 +179,6 @@ export function formatPeriod(str, periodType = 'Weekly', allPeriods = null) {
     }
     const month = d.toLocaleDateString('en-IN', { month: 'short' });
     const yr = String(d.getFullYear()).slice(2);
-    if (allPeriods && allPeriods.length > 0) {
-      const periodsInMonth = allPeriods
-        .filter(p => {
-          const pd = new Date(p + 'T00:00:00');
-          return pd.getFullYear() === d.getFullYear() && pd.getMonth() === d.getMonth();
-        })
-        .sort();
-      const weekNum = periodsInMonth.indexOf(str) + 1;
-      return `W${weekNum > 0 ? weekNum : 1} ${month} '${yr}`;
-    }
     const day = d.getDate();
     const weekNum = day < 8 ? 1 : day < 15 ? 2 : day < 22 ? 3 : 4;
     return `W${weekNum} ${month} '${yr}`;
