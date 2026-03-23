@@ -45,15 +45,21 @@ export const COL = {
 function excelDateToString(val) {
   if (!val) return '';
   if (val instanceof Date) {
-    return val.toISOString().slice(0, 10);
+    // Use LOCAL date components — not toISOString() which gives UTC
+    const y = val.getFullYear();
+    const m = String(val.getMonth() + 1).padStart(2, '0');
+    const d = String(val.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
   }
   if (typeof val === 'number') {
-    // Excel serial → JS date
+    // Excel serial → JS date using local time
     const d = new Date(Math.round((val - 25569) * 86400 * 1000));
-    return d.toISOString().slice(0, 10);
+    const y = d.getFullYear();
+    const mo = String(d.getMonth() + 1).padStart(2, '0');
+    const dy = String(d.getDate()).padStart(2, '0');
+    return `${y}-${mo}-${dy}`;
   }
   if (typeof val === 'string') {
-    // Already a string date
     return val.slice(0, 10);
   }
   return String(val);
@@ -77,7 +83,6 @@ export async function parseTracker(file) {
         const ws = wb.Sheets[sheetName];
         const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: 0 });
 
-        // Skip header row
         const records = rows
           .slice(1)
           .filter(row => row[COL.BRAND] && String(row[COL.BRAND]).trim() && String(row[COL.BRAND]).trim() !== 'Brand')
