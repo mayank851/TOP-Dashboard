@@ -1,10 +1,11 @@
 import React from 'react';
 
 const NAV_ITEMS = [
-  { id: 'overview',     icon: '📊', label: 'Overview' },
-  { id: 'top',          icon: '🏆', label: 'TOP Intelligence' },
-  { id: 'breakdown',    icon: '💸', label: 'Payout Breakdown' },
-  { id: 'trends',       icon: '📈', label: 'Trends' },
+  { id: 'overview',      icon: '📊', label: 'Overview' },
+  { id: 'top',           icon: '🏆', label: 'TOP Intelligence' },
+  { id: 'uniteconomics', icon: '📋', label: 'Unit Economics' },
+  { id: 'breakdown',     icon: '💸', label: 'Payout Breakdown' },
+  { id: 'trends',        icon: '📈', label: 'Trends' },
 ];
 
 export default function Sidebar({ activeView, setView, brand, setBrand, availableBrands, onUpload, periodType, setPeriodType }) {
@@ -26,7 +27,6 @@ export default function Sidebar({ activeView, setView, brand, setBrand, availabl
         <div className="sidebar-logo-sub">Rethink Future Pvt. Ltd.</div>
       </div>
 
-      {/* Brand selector */}
       <div style={{ padding: '12px 16px 0' }}>
         <div className="sidebar-section-label" style={{ padding: '0 2px 6px', marginTop: 0 }}>Brand</div>
         <select
@@ -42,7 +42,6 @@ export default function Sidebar({ activeView, setView, brand, setBrand, availabl
         </select>
       </div>
 
-      {/* Period toggle */}
       <div style={{ padding: '10px 16px 0' }}>
         <div className="sidebar-section-label" style={{ padding: '0 2px 6px', marginTop: 0 }}>Period</div>
         <div style={{ display: 'flex', gap: 6 }}>
@@ -65,7 +64,6 @@ export default function Sidebar({ activeView, setView, brand, setBrand, availabl
         </div>
       </div>
 
-      {/* Navigation */}
       <div className="sidebar-section-label">Views</div>
       {NAV_ITEMS.map(item => (
         <div
@@ -78,7 +76,6 @@ export default function Sidebar({ activeView, setView, brand, setBrand, availabl
         </div>
       ))}
 
-      {/* Actions */}
       <div className="sidebar-section-label">Actions</div>
       <button className="sidebar-upload-btn" onClick={() => fileRef.current?.click()}>
         <span>📁</span> Load New Tracker
