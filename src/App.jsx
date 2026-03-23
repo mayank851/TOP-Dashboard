@@ -7,6 +7,7 @@ import Overview from './views/Overview';
 import TopIntelligence from './views/TopIntelligence';
 import PayoutBreakdown from './views/PayoutBreakdown';
 import Trends from './views/Trends';
+import UnitEconomics from './views/UnitEconomics';
 
 const STORAGE_KEY = 'top_dashboard_records_v1';
 
@@ -91,11 +92,12 @@ export default function App() {
 
   const renderView = () => {
     switch (view) {
-      case 'overview':   return <Overview {...props} />;
-      case 'top':        return <TopIntelligence {...props} />;
-      case 'breakdown':  return <PayoutBreakdown {...props} />;
-      case 'trends':     return <Trends {...props} />;
-      default:           return <Overview {...props} />;
+      case 'overview':      return <Overview {...props} />;
+      case 'top':           return <TopIntelligence {...props} />;
+      case 'uniteconomics': return <UnitEconomics {...props} />;
+      case 'breakdown':     return <PayoutBreakdown {...props} />;
+      case 'trends':        return <Trends {...props} />;
+      default:              return <Overview {...props} />;
     }
   };
 
