@@ -1,68 +1,34 @@
 import * as XLSX from 'xlsx';
 
-// Column indices (0-based) for Data Log sheet
 export const COL = {
-  PERIOD_START: 0,
-  PERIOD_TYPE: 1,
-  BRAND: 2,
-  LOCATION: 3,
-  PLATFORM: 4,
-  DELIVERED_ORDERS: 5,
-  CANCELLED_ORDERS: 6,
-  TOTAL_ORDERS: 7,
-  ITEM_TOTAL: 8,
-  PKG_CHARGES: 9,
-  DISCOUNT_SHARE: 10,
-  GST_COLLECTED: 11,
-  GMV: 12,
-  NET_SALES: 13,
-  CUST_PAID: 14,
-  COMMISSION: 15,
-  LONG_DIST: 16,
-  PLATFORM_FEE2: 17,
-  GST_SVC: 18,
-  CANCEL_CHARGES: 19,
-  CUST_COMPLAINTS: 20,
-  TOTAL_COMPLAINTS: 21,
-  ADS_OFFERS: 22,
-  CPC_ADS: 23,
-  SEARCH_ADS: 24,
-  TOTAL_ADS: 25,
-  GST_DEDUCTION: 26,
-  TCS: 27,
-  TDS: 28,
-  NET_PAYOUT: 29,
-  HYPERPURE: 30,
-  PLATFORM_FEES: 31,
-  TOTAL_TAXES: 32,
-  AOV: 33,
-  COMMISSION_PCT: 34,
-  DISCOUNT_PCT: 35,
-  ADS_PCT: 36,
-  NET_MARGIN_PCT: 37,
+  PERIOD_START: 0, PERIOD_TYPE: 1, BRAND: 2, LOCATION: 3, PLATFORM: 4,
+  DELIVERED_ORDERS: 5, CANCELLED_ORDERS: 6, TOTAL_ORDERS: 7, ITEM_TOTAL: 8,
+  PKG_CHARGES: 9, DISCOUNT_SHARE: 10, GST_COLLECTED: 11, GMV: 12,
+  NET_SALES: 13, CUST_PAID: 14, COMMISSION: 15, LONG_DIST: 16,
+  PLATFORM_FEE2: 17, GST_SVC: 18, CANCEL_CHARGES: 19, CUST_COMPLAINTS: 20,
+  TOTAL_COMPLAINTS: 21, ADS_OFFERS: 22, CPC_ADS: 23, SEARCH_ADS: 24,
+  TOTAL_ADS: 25, GST_DEDUCTION: 26, TCS: 27, TDS: 28, NET_PAYOUT: 29,
+  HYPERPURE: 30, PLATFORM_FEES: 31, TOTAL_TAXES: 32, AOV: 33,
+  COMMISSION_PCT: 34, DISCOUNT_PCT: 35, ADS_PCT: 36, NET_MARGIN_PCT: 37,
 };
 
 function excelDateToString(val) {
   if (!val) return '';
+  // If already a string like "2026-03-08"
+  if (typeof val === 'string') return val.slice(0, 10);
+  // If a number (Excel serial) — convert using pure UTC to avoid timezone shift
+  if (typeof val === 'number') {
+    const d = new Date(Date.UTC(1899, 11, 30) + Math.round(val) * 86400000);
+    return d.toISOString().slice(0, 10);
+  }
+  // If a Date object — use UTC methods to avoid timezone shift
   if (val instanceof Date) {
-    // Use LOCAL date components — not toISOString() which gives UTC
-    const y = val.getFullYear();
-    const m = String(val.getMonth() + 1).padStart(2, '0');
-    const d = String(val.getDate()).padStart(2, '0');
+    const y = val.getUTCFullYear();
+    const m = String(val.getUTCMonth() + 1).padStart(2, '0');
+    const d = String(val.getUTCDate()).padStart(2, '0');
     return `${y}-${m}-${d}`;
   }
-  if (typeof val === 'number') {
-    // Excel serial → JS date using local time
-    const d = new Date(Math.round((val - 25569) * 86400 * 1000));
-    const y = d.getFullYear();
-    const mo = String(d.getMonth() + 1).padStart(2, '0');
-    const dy = String(d.getDate()).padStart(2, '0');
-    return `${y}-${mo}-${dy}`;
-  }
-  if (typeof val === 'string') {
-    return val.slice(0, 10);
-  }
-  return String(val);
+  return String(val).slice(0, 10);
 }
 
 function n(v) { return typeof v === 'number' ? v : (parseFloat(v) || 0); }
@@ -73,7 +39,8 @@ export async function parseTracker(file) {
     reader.onload = (e) => {
       try {
         const data = new Uint8Array(e.target.result);
-        const wb = XLSX.read(data, { type: 'array', cellDates: true });
+        // Do NOT use cellDates:true — handle date conversion ourselves
+        const wb = XLSX.read(data, { type: 'array' });
 
         const sheetName =
           wb.SheetNames.find(s => /data.?log/i.test(s)) ||
