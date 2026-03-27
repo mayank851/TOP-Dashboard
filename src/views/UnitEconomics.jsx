@@ -25,14 +25,19 @@ const Tip = ({ active, payload, label }) => {
 
 export default function UnitEconomics({ records, brand, periodType }) {
   const currentBrand = brand || 'TOP';
+  const [selectedPeriod, setSelectedPeriod] = React.useState('latest');
 
   const brandRecs = filterRecords(records, { brand: currentBrand, periodType });
   const sortedPeriods = [...new Set(brandRecs.map(r => r.periodStart))].sort();
   const latestPeriod = sortedPeriods[sortedPeriods.length - 1];
-  const priorPeriod = sortedPeriods[sortedPeriods.length - 2];
   const allPeriodStarts = sortedPeriods;
 
-  const latestRecs = brandRecs.filter(r => r.periodStart === latestPeriod);
+  // Dynamic active period and prior period
+  const activePeriod = selectedPeriod === 'latest' ? latestPeriod : selectedPeriod;
+  const activePeriodIndex = sortedPeriods.indexOf(activePeriod);
+  const priorPeriod = activePeriodIndex > 0 ? sortedPeriods[activePeriodIndex - 1] : null;
+
+  const latestRecs = brandRecs.filter(r => r.periodStart === activePeriod);
   const priorRecs = priorPeriod ? brandRecs.filter(r => r.periodStart === priorPeriod) : [];
   const totals = sumRecords(latestRecs);
   const priorTotals = priorRecs.length ? sumRecords(priorRecs) : null;
@@ -99,16 +104,39 @@ export default function UnitEconomics({ records, brand, periodType }) {
     adsPct: +t.adsPct.toFixed(1),
   }));
 
+  const activePeriodLabel = formatPeriod(activePeriod, periodType, allPeriodStarts);
+
   return (
     <div className="content-area">
       <div className="view-header">
         <div className="view-title">📋 Unit Economics</div>
         <div className="view-subtitle">
-          {currentBrand} · {formatPeriod(latestPeriod, periodType, allPeriodStarts)} · investor data room view
+          {currentBrand} · <strong style={{ color: 'var(--text-primary)' }}>{activePeriodLabel}</strong> · investor data room view
+          {priorPeriod && (
+            <span style={{ color: 'var(--text-muted)' }}> · vs {formatPeriod(priorPeriod, periodType, allPeriodStarts)}</span>
+          )}
         </div>
       </div>
 
-      <div className="section-title" style={{ marginTop: 0 }}>Per Order Economics — {formatPeriod(latestPeriod, periodType, allPeriodStarts)}</div>
+      {/* Period selector */}
+      <div className="filter-row">
+        <span className="filter-label">Period</span>
+        <button
+          className={`pill pill-sm${selectedPeriod === 'latest' ? ' active' : ''}`}
+          onClick={() => setSelectedPeriod('latest')}
+        >Latest</button>
+        {[...sortedPeriods].reverse().slice(0, 8).map(p => (
+          <button
+            key={p}
+            className={`pill pill-sm${selectedPeriod === p && selectedPeriod !== 'latest' ? ' active' : ''}`}
+            onClick={() => setSelectedPeriod(p)}
+          >
+            {formatPeriod(p, periodType, allPeriodStarts)}
+          </button>
+        ))}
+      </div>
+
+      <div className="section-title" style={{ marginTop: 0 }}>Per Order Economics — {activePeriodLabel}</div>
       {perOrder && (
         <div className="kpi-grid kpi-grid-5" style={{ marginBottom: 12 }}>
           {[
@@ -144,7 +172,7 @@ export default function UnitEconomics({ records, brand, periodType }) {
           )}
         </div>
         <div className="kpi-card orange">
-          <div className="kpi-label">Platform Fees (of GMV)</div>
+          <div className="kpi-label">Platform Fees (of NS)</div>
           <div className="kpi-value">{fPct(totals.platformFeesPct)}</div>
           <div className="kpi-sub">Commission + delivery fees</div>
         </div>
@@ -179,7 +207,7 @@ export default function UnitEconomics({ records, brand, periodType }) {
       <div className="section-title">Revenue Concentration Risk</div>
       <div className="chart-row chart-row-2">
         <div className="chart-card">
-          <div className="chart-card-title">GMV Share by Location — {formatPeriod(latestPeriod, periodType, allPeriodStarts)}</div>
+          <div className="chart-card-title">GMV Share by Location — {activePeriodLabel}</div>
           <table className="data-table">
             <thead>
               <tr><th>Location</th><th>GMV</th><th>% of Total</th><th>Orders</th><th>Risk Signal</th></tr>
@@ -326,14 +354,14 @@ export default function UnitEconomics({ records, brand, periodType }) {
       <FounderInsights
         data={{
           brand: currentBrand,
-          period: formatPeriod(latestPeriod, periodType, allPeriodStarts),
+          period: activePeriodLabel,
           perOrder,
           effectiveTakeRate: fPct(effectiveTakeRate),
           concentrationRisk: locSummaryAll.map(l => ({ location: l.location, pct: fPct(l.pct) })),
           seasonality: seasonality.map(s => ({ week: s.week, avgGMV: fINR(s.avgGMV, true), avgOrders: Math.round(s.avgOrders) })),
           taxLocked: fINR(totals.tds + totals.tcs, true),
         }}
-        context={`Unit Economics view for ${currentBrand}. Focus on per-order profitability, platform concentration risk, and whether the business model is sustainable at scale. Key investor concern: is growth organic or discount-driven?`}
+        context={`Unit Economics view for ${currentBrand}, period: ${activePeriodLabel}. Focus on per-order profitability, platform concentration risk, and whether the business model is sustainable at scale. Key investor concern: is growth organic or discount-driven?`}
       />
     </div>
   );
