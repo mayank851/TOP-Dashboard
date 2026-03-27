@@ -1,6 +1,9 @@
 import React from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { getBrandSummary, getLocationSummary, getPeriodTrend, formatPeriod, fINR, fPct, fNum, pctChange } from '../utils/calculations';
+import {
+  getBrandSummary, getLocationSummary, getPeriodTrend,
+  formatPeriod, fINR, fPct, fNum, pctChange, filterRecords, sumRecords, groupBy,
+} from '../utils/calculations';
 import FounderInsights from '../components/FounderInsights';
 
 const BRAND_COLORS = { TOP: '#7c6ef5', FB: '#2dd4bf', FI: '#f5c518' };
@@ -20,17 +23,30 @@ const CustomTooltip = ({ active, payload, label }) => {
 };
 
 export default function Overview({ records, periodType }) {
-  const brands = getBrandSummary(records, periodType);
-  const allLoc = getLocationSummary(records, null, periodType);
+  // All trend data (for WoW/MoM change calculation)
   const trend = getPeriodTrend(records, periodType);
+
+  // Period list for formatting labels
+  const allPeriodStarts = [...new Set(records.filter(r => r.periodType === periodType).map(r => r.periodStart))].sort();
+  const latestPeriod = allPeriodStarts[allPeriodStarts.length - 1];
+
+  // Only show latest period data in KPIs and tables (not all-time cumulative)
+  const latestRecs = records.filter(r => r.periodType === periodType && r.periodStart === latestPeriod);
+
+  const brands = getBrandSummary(latestRecs, periodType);
+  const allLoc = getLocationSummary(latestRecs, null, periodType);
+
+  // WoW/MoM change from trend (last vs second-to-last period)
   const last = trend[trend.length - 1];
   const prior = trend[trend.length - 2];
   const gmvChange = last && prior ? pctChange(last.gmv, prior.gmv) : null;
   const ordersChange = last && prior ? pctChange(last.deliveredOrders, prior.deliveredOrders) : null;
 
   const total = brands.reduce((a, b) => ({
-    gmv: a.gmv + b.gmv, netPayout: a.netPayout + b.netPayout,
-    netSales: a.netSales + b.netSales, deliveredOrders: a.deliveredOrders + b.deliveredOrders,
+    gmv: a.gmv + b.gmv,
+    netPayout: a.netPayout + b.netPayout,
+    netSales: a.netSales + b.netSales,
+    deliveredOrders: a.deliveredOrders + b.deliveredOrders,
     discountShare: a.discountShare + b.discountShare,
   }), { gmv: 0, netPayout: 0, netSales: 0, deliveredOrders: 0, discountShare: 0 });
 
@@ -40,6 +56,7 @@ export default function Overview({ records, periodType }) {
 
   const insightData = {
     periodType,
+    period: latestPeriod ? formatPeriod(latestPeriod, periodType, allPeriodStarts) : 'N/A',
     totalGMV: fINR(total.gmv, true),
     totalNetPayout: fINR(total.netPayout, true),
     totalOrders: fNum(total.deliveredOrders),
@@ -60,10 +77,17 @@ export default function Overview({ records, periodType }) {
     <div className="content-area">
       <div className="view-header">
         <div className="view-title">📊 Overview</div>
-        <div className="view-subtitle">All brands · All locations · All platforms · {periodType} view</div>
+        <div className="view-subtitle">
+          All brands · All locations · All platforms · {periodType} view
+          {latestPeriod && (
+            <span> · <strong style={{ color: 'var(--text-primary)' }}>{formatPeriod(latestPeriod, periodType, allPeriodStarts)}</strong></span>
+          )}
+        </div>
       </div>
 
-      <div className="section-title" style={{ marginTop: 0 }}>Portfolio Summary</div>
+      <div className="section-title" style={{ marginTop: 0 }}>
+        Portfolio Summary — {latestPeriod ? formatPeriod(latestPeriod, periodType, allPeriodStarts) : ''}
+      </div>
       <div className="kpi-grid kpi-grid-5" style={{ marginBottom: 24 }}>
         <div className="kpi-card purple">
           <div className="kpi-label">Total GMV</div>
@@ -129,7 +153,7 @@ export default function Overview({ records, periodType }) {
       </div>
 
       <div className="chart-card" style={{ marginTop: 12 }}>
-        <div className="chart-card-title">Brand Performance — {periodType}</div>
+        <div className="chart-card-title">Brand Performance — {latestPeriod ? formatPeriod(latestPeriod, periodType, allPeriodStarts) : periodType}</div>
         <table className="data-table">
           <thead>
             <tr>
@@ -175,7 +199,7 @@ export default function Overview({ records, periodType }) {
 
       <div className="section-title">All Locations</div>
       <div className="chart-card">
-        <div className="chart-card-title">Location Performance — {periodType}</div>
+        <div className="chart-card-title">Location Performance — {latestPeriod ? formatPeriod(latestPeriod, periodType, allPeriodStarts) : periodType}</div>
         <table className="data-table">
           <thead>
             <tr><th>Location</th><th>Orders</th><th>GMV</th><th>Net Payout</th><th>Payout/NS%</th><th>Platform Fees%</th><th>Ads%</th><th>Discount%</th><th>AOV</th></tr>
@@ -198,7 +222,7 @@ export default function Overview({ records, periodType }) {
         </table>
       </div>
 
-      <FounderInsights data={insightData} context={`Overview page — ${periodType} view across all brands (TOP, FB, FI) and locations (HSR, MTH, BTM, IND). TOP is the primary brand for investor discussions.`} />
+      <FounderInsights data={insightData} context={`Overview page — ${periodType} view, latest period: ${latestPeriod ? formatPeriod(latestPeriod, periodType, allPeriodStarts) : 'N/A'}. Across all brands (TOP, FB, FI) and locations (HSR, MTH, BTM, IND). TOP is the primary brand for investor discussions.`} />
     </div>
   );
 }
