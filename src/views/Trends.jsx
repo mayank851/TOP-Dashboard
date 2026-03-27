@@ -36,11 +36,12 @@ export default function Trends({ records, brand, periodType }) {
   const trend = getPeriodTrend(filtered, periodType).map(t => ({
     ...t,
     period: formatPeriod(t.period, periodType, allPeriodStarts),
-    commissionPct: +t.commissionPct.toFixed(2),
-    adsPct: +t.adsPct.toFixed(2),
-    netMarginPct: +t.netMarginPct.toFixed(2),
-    discountPct: +t.discountPct.toFixed(2),
-    aov: +t.aov.toFixed(0),
+    platformFeesPct: +(t.platformFeesPct || 0).toFixed(2),
+    adsPct: +(t.adsPct || 0).toFixed(2),
+    netMarginPct: +(t.netMarginPct || 0).toFixed(2),
+    discountPct: +(t.discountPct || 0).toFixed(2),
+    netPayoutOnNetSales: +(t.netPayoutOnNetSales || 0).toFixed(2),
+    aov: +(t.aov || 0).toFixed(0),
   }));
 
   const multiLocTrend = (() => {
@@ -69,7 +70,7 @@ export default function Trends({ records, brand, periodType }) {
     { key: 'deliveredOrders', label: 'Orders' },
     { key: 'aov', label: 'AOV' },
     { key: 'netMarginPct', label: 'Net Margin%' },
-    { key: 'commissionPct', label: 'Commission%' },
+    { key: 'platformFeesPct', label: 'Platform Fees%' },
     { key: 'adsPct', label: 'Ads%' },
   ];
 
@@ -111,7 +112,7 @@ export default function Trends({ records, brand, periodType }) {
               tick={{ fill: '#6272a4', fontSize: 11, fontFamily: 'var(--font-mono)' }}
               axisLine={false} tickLine={false}
               tickFormatter={v => {
-                if (['netMarginPct', 'commissionPct', 'adsPct', 'discountPct'].includes(metric)) return `${v}%`;
+                if (['netMarginPct', 'platformFeesPct', 'adsPct', 'discountPct', 'netPayoutOnNetSales'].includes(metric)) return `${v}%`;
                 if (metric === 'deliveredOrders') return fNum(v);
                 return fINR(v, true);
               }}
@@ -121,7 +122,7 @@ export default function Trends({ records, brand, periodType }) {
               {trend.map((t, i) => (
                 <Cell key={i} fill={
                   metric === 'netMarginPct' ? (t.netMarginPct > 20 ? '#4ade80' : t.netMarginPct < 10 ? '#f87171' : '#f5c518')
-                  : metric === 'commissionPct' ? '#f87171'
+                  : metric === 'platformFeesPct' ? '#f87171'
                   : metric === 'adsPct' ? '#fb923c'
                   : '#6366f1'
                 } fillOpacity={0.85} />
@@ -133,7 +134,7 @@ export default function Trends({ records, brand, periodType }) {
 
       <div className="section-title">Unit Economics Overlay</div>
       <div className="chart-card">
-        <div className="chart-card-title">Commission% vs Ads% vs Net Margin% — trend comparison</div>
+        <div className="chart-card-title">Platform Fees% vs Ads% vs Net Margin% — trend comparison</div>
         <ResponsiveContainer width="100%" height={220}>
           <LineChart data={trend}>
             <CartesianGrid stroke="rgba(255,255,255,0.03)" strokeDasharray="3 3" />
@@ -141,7 +142,7 @@ export default function Trends({ records, brand, periodType }) {
             <YAxis tick={{ fill: '#6272a4', fontSize: 11, fontFamily: 'var(--font-mono)' }} axisLine={false} tickLine={false} tickFormatter={v => `${v}%`} />
             <Tooltip content={<ChartTip />} />
             <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12, color: '#8892c4' }} />
-            <Line type="monotone" dataKey="commissionPct" name="Commission%" stroke="#f87171" strokeWidth={2} dot={{ r: 3 }} />
+            <Line type="monotone" dataKey="platformFeesPct" name="Platform Fees%" stroke="#f87171" strokeWidth={2} dot={{ r: 3 }} />
             <Line type="monotone" dataKey="adsPct" name="Ads%" stroke="#fb923c" strokeWidth={2} dot={{ r: 3 }} />
             <Line type="monotone" dataKey="netMarginPct" name="Net Margin%" stroke="#4ade80" strokeWidth={2.5} dot={{ r: 4 }} />
           </LineChart>
@@ -175,8 +176,8 @@ export default function Trends({ records, brand, periodType }) {
           periodType,
           metric,
           trendPeriods: trend.length,
-          latestValue: trend.length > 0 ? trend[trend.length-1][metric] : null,
-          priorValue: trend.length > 1 ? trend[trend.length-2][metric] : null,
+          latestValue: trend.length > 0 ? trend[trend.length - 1][metric] : null,
+          priorValue: trend.length > 1 ? trend[trend.length - 2][metric] : null,
           trend: trend.slice(-4).map(t => ({ period: t.period, value: t[metric] })),
         }}
         context={`Trends view — showing ${metric} trend for ${brand || 'all brands'} (${periodType}). ${locFilter !== 'All' ? `Filtered to ${locFilter} location.` : 'All locations.'}`}
