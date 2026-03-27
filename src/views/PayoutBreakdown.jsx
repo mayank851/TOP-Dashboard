@@ -1,12 +1,13 @@
 import React from 'react';
-import { filterRecords, sumRecords, getLocationSummary, getPlatformSummary, fINR, fPct, fNum } from '../utils/calculations';
+import {
+  filterRecords, sumRecords, fINR, fPct, fNum, formatPeriod,
+} from '../utils/calculations';
 import KPICard from '../components/KPICard';
 import FounderInsights from '../components/FounderInsights';
 
 function WaterfallChart({ gmv, items, net }) {
   return (
     <div>
-      {/* GMV */}
       <WRow label="Gross GMV" value={gmv} ref_gmv={gmv} color="#6366f1" isStart />
       {items.filter(i => Math.abs(i.value) > 0).map((item, i) => (
         <WRow key={i} label={item.label} value={-Math.abs(item.value)} ref_gmv={gmv} color={item.color} />
@@ -54,18 +55,27 @@ function WRow({ label, value, ref_gmv, color, isStart, isEnd }) {
 export default function PayoutBreakdown({ records, brand, periodType }) {
   const [loc, setLoc] = React.useState('All');
   const [plat, setPlat] = React.useState('All');
+  const [selectedPeriod, setSelectedPeriod] = React.useState('latest');
 
   const base = brand && brand !== 'All' ? records.filter(r => r.brand === brand) : records;
+
+  // Period list
+  const allPeriodStarts = [...new Set(base.filter(r => r.periodType === periodType).map(r => r.periodStart))].sort();
+  const latestPeriod = allPeriodStarts[allPeriodStarts.length - 1];
+  const activePeriod = selectedPeriod === 'latest' ? latestPeriod : selectedPeriod;
+
   const filtered = filterRecords(base, {
     location: loc !== 'All' ? loc : undefined,
     platform: plat !== 'All' ? plat : undefined,
     periodType,
-  });
+  }).filter(r => r.periodStart === activePeriod);
 
   const t = sumRecords(filtered);
 
-  const locations = ['All', ...new Set(base.filter(r => r.periodType === 'Weekly').map(r => r.location))].filter(Boolean);
-  const platforms = ['All', ...new Set(base.filter(r => r.periodType === 'Weekly').map(r => r.platform))].filter(Boolean);
+  const locations = ['All', ...new Set(base.filter(r => r.periodType === periodType).map(r => r.location))].filter(Boolean);
+  const platforms = ['All', ...new Set(base.filter(r => r.periodType === periodType).map(r => r.platform))].filter(Boolean);
+
+  const activePeriodLabel = formatPeriod(activePeriod, periodType, allPeriodStarts);
 
   const deductionItems = [
     { label: 'Commission', value: t.commission, color: '#f87171' },
@@ -86,9 +96,15 @@ export default function PayoutBreakdown({ records, brand, periodType }) {
     <div className="content-area">
       <div className="view-header">
         <div className="view-title">💸 Payout Breakdown</div>
-        <div className="view-subtitle">{brand && brand !== 'All' ? brand : 'All Brands'} · GMV to Net Payout — full deduction waterfall</div>
+        <div className="view-subtitle">
+          {brand && brand !== 'All' ? brand : 'All Brands'} · GMV to Net Payout — full deduction waterfall
+          {activePeriod && (
+            <span> · <strong style={{ color: 'var(--text-primary)' }}>{activePeriodLabel}</strong></span>
+          )}
+        </div>
       </div>
 
+      {/* Location + Platform filters */}
       <div className="filter-row">
         <span className="filter-label">Location</span>
         {locations.map(l => (
@@ -100,8 +116,26 @@ export default function PayoutBreakdown({ records, brand, periodType }) {
         ))}
       </div>
 
+      {/* Period selector */}
+      <div className="filter-row" style={{ marginTop: 4 }}>
+        <span className="filter-label">Period</span>
+        <button
+          className={`pill pill-sm${selectedPeriod === 'latest' ? ' active' : ''}`}
+          onClick={() => setSelectedPeriod('latest')}
+        >Latest</button>
+        {[...allPeriodStarts].reverse().slice(0, 8).map(p => (
+          <button
+            key={p}
+            className={`pill pill-sm${selectedPeriod === p && selectedPeriod !== 'latest' ? ' active' : ''}`}
+            onClick={() => setSelectedPeriod(p)}
+          >
+            {formatPeriod(p, periodType, allPeriodStarts)}
+          </button>
+        ))}
+      </div>
+
       {/* Summary KPIs */}
-      <div className="section-title" style={{ marginTop: 0 }}>Payout Summary</div>
+      <div className="section-title" style={{ marginTop: 0 }}>Payout Summary — {activePeriodLabel}</div>
       <div className="kpi-grid kpi-grid-4" style={{ marginBottom: 24 }}>
         <KPICard label="Gross GMV" value={fINR(t.gmv, true)} color="purple" sub="Starting point" />
         <KPICard label="Total Deductions" value={fINR(totalKnownDeductions, true)} color="red" sub="All platform costs" />
@@ -185,13 +219,14 @@ export default function PayoutBreakdown({ records, brand, periodType }) {
           ⚠️ Reconciliation gap: {fINR(Math.abs(reconciliation))} — sum of known deductions doesn't exactly equal GMV − Net Payout. Check for additional line items.
         </div>
       )}
-<FounderInsights
+
+      <FounderInsights
         data={{
+          period: activePeriodLabel,
           gmv: fINR(t.gmv, true),
           netPayout: fINR(t.netPayout, true),
           effectiveRate: fPct(effectiveRate),
           commission: fINR(t.commission, true),
-          commissionPct: fPct(t.commissionPct),
           adSpend: fINR(t.totalAds, true),
           adsPct: fPct(t.adsPct),
           discountPct: fPct(t.discountPct),
@@ -201,7 +236,7 @@ export default function PayoutBreakdown({ records, brand, periodType }) {
           totalDeductions: fINR(totalKnownDeductions, true),
           deductionPct: fPct(t.gmv > 0 ? totalKnownDeductions / t.gmv * 100 : 0),
         }}
-        context="Payout Breakdown view — showing the full deduction waterfall from GMV to Net Payout. Focus on which deductions are highest and what levers exist to improve net payout."
+        context={`Payout Breakdown view — ${activePeriodLabel}. Showing the full deduction waterfall from GMV to Net Payout. Focus on which deductions are highest and what levers exist to improve net payout.`}
       />
     </div>
   );
