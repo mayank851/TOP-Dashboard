@@ -46,32 +46,70 @@ const RevTooltip = ({ active, payload, label }) => {
 export default function TopIntelligence({ records, brand, periodType }) {
   const [loc, setLoc] = React.useState('All');
   const [plat, setPlat] = React.useState('All');
+  const [selectedPeriod, setSelectedPeriod] = React.useState('latest');
 
   const currentBrand = brand || 'TOP';
   const periodLabel = periodType === 'Monthly' ? 'month' : 'week';
 
+  // All records for this brand + periodType (for period list and filters)
   const allBrandRecs = filterRecords(records, { brand: currentBrand, periodType });
   const sortedPeriods = [...new Set(allBrandRecs.map(r => r.periodStart))].sort();
   const latestPeriod = sortedPeriods[sortedPeriods.length - 1];
-  const priorPeriod = sortedPeriods[sortedPeriods.length - 2];
   const allPeriodStarts = [...new Set(records.filter(r => r.brand === currentBrand).map(r => r.periodStart))].sort();
 
-  const [selectedPeriod, setSelectedPeriod] = React.useState('latest');
-  const activePeriod = selectedPeriod === 'latest' ? latestPeriod : selectedPeriod;
+  // MTD: find the latest week's month prefix and aggregate weekly rows for that month
+  const weeklyRecs = filterRecords(records, { brand: currentBrand, periodType: 'Weekly' });
+  const sortedWeeklyPeriods = [...new Set(weeklyRecs.map(r => r.periodStart))].sort();
+  const latestWeekStart = sortedWeeklyPeriods[sortedWeeklyPeriods.length - 1];
+  const mtdMonthPrefix = latestWeekStart ? latestWeekStart.slice(0, 7) : null; // e.g. '2026-03'
+  const mtdMonthLabel = mtdMonthPrefix
+    ? new Date(mtdMonthPrefix + '-01T00:00:00').toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })
+    : '';
+  const mtdLabel = mtdMonthLabel ? `${mtdMonthLabel} MTD` : 'MTD';
+  const isMTD = periodType === 'Monthly' && selectedPeriod === 'mtd';
 
-  const currentRecs = filterRecords(records, {
-    brand: currentBrand,
-    location: loc !== 'All' ? loc : undefined,
-    platform: plat !== 'All' ? plat : undefined,
-    periodType,
-  }).filter(r => r.periodStart === activePeriod);
+  // Active period key for non-MTD
+  const activePeriod = (selectedPeriod === 'latest' || selectedPeriod === 'mtd')
+    ? latestPeriod
+    : selectedPeriod;
 
-  const priorRecs = priorPeriod ? filterRecords(records, {
-    brand: currentBrand,
-    location: loc !== 'All' ? loc : undefined,
-    platform: plat !== 'All' ? plat : undefined,
-    periodType,
-  }).filter(r => r.periodStart === priorPeriod) : [];
+  // Prior period = immediately before activePeriod in the sorted list (dynamic, not hardcoded)
+  const activePeriodIndex = sortedPeriods.indexOf(activePeriod);
+  const priorPeriod = activePeriodIndex > 0 ? sortedPeriods[activePeriodIndex - 1] : null;
+
+  // Current records
+  const currentRecs = isMTD
+    ? filterRecords(records, {
+        brand: currentBrand,
+        location: loc !== 'All' ? loc : undefined,
+        platform: plat !== 'All' ? plat : undefined,
+        periodType: 'Weekly',
+      }).filter(r => mtdMonthPrefix && r.periodStart.startsWith(mtdMonthPrefix))
+    : filterRecords(records, {
+        brand: currentBrand,
+        location: loc !== 'All' ? loc : undefined,
+        platform: plat !== 'All' ? plat : undefined,
+        periodType,
+      }).filter(r => r.periodStart === activePeriod);
+
+  // Prior records — MTD compares against last full monthly period
+  const priorRecs = isMTD
+    ? (latestPeriod
+        ? filterRecords(records, {
+            brand: currentBrand,
+            location: loc !== 'All' ? loc : undefined,
+            platform: plat !== 'All' ? plat : undefined,
+            periodType: 'Monthly',
+          }).filter(r => r.periodStart === latestPeriod)
+        : [])
+    : (priorPeriod
+        ? filterRecords(records, {
+            brand: currentBrand,
+            location: loc !== 'All' ? loc : undefined,
+            platform: plat !== 'All' ? plat : undefined,
+            periodType,
+          }).filter(r => r.periodStart === priorPeriod)
+        : []);
 
   const totals = sumRecords(currentRecs);
   const priorTotals = priorRecs.length ? sumRecords(priorRecs) : null;
@@ -95,17 +133,42 @@ export default function TopIntelligence({ records, brand, periodType }) {
   }));
 
   const locSummary = getLocationSummary(
-    filterRecords(records, { brand: currentBrand, platform: plat !== 'All' ? plat : undefined }).filter(r => r.periodStart === activePeriod),
-    null, periodType
+    filterRecords(records, {
+      brand: currentBrand,
+      platform: plat !== 'All' ? plat : undefined,
+      periodType: isMTD ? 'Weekly' : periodType,
+    }).filter(r => isMTD
+      ? (mtdMonthPrefix && r.periodStart.startsWith(mtdMonthPrefix))
+      : r.periodStart === activePeriod
+    ),
+    null,
+    isMTD ? 'Weekly' : periodType
   );
+
   const platSummary = getPlatformSummary(
-    filterRecords(records, { brand: currentBrand, location: loc !== 'All' ? loc : undefined }).filter(r => r.periodStart === activePeriod),
-    null, periodType
+    filterRecords(records, {
+      brand: currentBrand,
+      location: loc !== 'All' ? loc : undefined,
+      periodType: isMTD ? 'Weekly' : periodType,
+    }).filter(r => isMTD
+      ? (mtdMonthPrefix && r.periodStart.startsWith(mtdMonthPrefix))
+      : r.periodStart === activePeriod
+    ),
+    null,
+    isMTD ? 'Weekly' : periodType
   );
 
   const waterfall = getPayoutWaterfall(totals);
   const brandLocs = ['All', ...new Set(allBrandRecs.map(r => r.location))].filter(Boolean);
   const brandPlats = ['All', ...new Set(allBrandRecs.map(r => r.platform))].filter(Boolean);
+
+  const activePeriodLabel = isMTD
+    ? mtdLabel
+    : formatPeriod(activePeriod, periodType, allPeriodStarts);
+
+  const priorPeriodLabel = isMTD
+    ? `${formatPeriod(latestPeriod, 'Monthly', allPeriodStarts)} (last full month)`
+    : formatPeriod(priorPeriod, periodType, allPeriodStarts);
 
   return (
     <div className="content-area">
@@ -114,15 +177,41 @@ export default function TopIntelligence({ records, brand, periodType }) {
           <div>
             <div className="view-title">🏆 {currentBrand} Intelligence</div>
             <div className="view-subtitle">
-              Showing: <strong style={{ color: 'var(--text-primary)' }}>{formatPeriod(activePeriod, periodType, allPeriodStarts)}</strong>
-              {priorTotals && <span> · vs {formatPeriod(priorPeriod, periodType, allPeriodStarts)}</span>}
+              Showing: <strong style={{ color: 'var(--text-primary)' }}>{activePeriodLabel}</strong>
+              {priorTotals && <span> · vs {priorPeriodLabel}</span>}
               {' '}· {sortedPeriods.length} {periodLabel}s in tracker
+              {isMTD && (
+                <span style={{ marginLeft: 8, color: 'var(--accent-teal)', fontSize: 11, fontFamily: 'var(--font-mono)' }}>
+                  · {currentRecs.length / Math.max(1, [...new Set(currentRecs.map(r => r.location + r.platform))].length)} weeks aggregated
+                </span>
+              )}
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end', maxWidth: 480 }}>
-            <button className={`pill pill-sm${selectedPeriod === 'latest' ? ' active' : ''}`} onClick={() => setSelectedPeriod('latest')}>Latest</button>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end', maxWidth: 520 }}>
+            <button
+              className={`pill pill-sm${selectedPeriod === 'latest' ? ' active' : ''}`}
+              onClick={() => setSelectedPeriod('latest')}
+            >Latest</button>
+
+            {/* MTD button — only shown in Monthly mode when we have weekly data for current month */}
+            {periodType === 'Monthly' && mtdMonthPrefix && (
+              <button
+                className={`pill pill-sm${selectedPeriod === 'mtd' ? ' active' : ''}`}
+                onClick={() => setSelectedPeriod('mtd')}
+                style={{
+                  borderColor: 'var(--accent-teal)',
+                  color: selectedPeriod === 'mtd' ? 'var(--bg-card)' : 'var(--accent-teal)',
+                  background: selectedPeriod === 'mtd' ? 'var(--accent-teal)' : 'transparent',
+                }}
+              >{mtdLabel} ✦</button>
+            )}
+
             {[...sortedPeriods].reverse().slice(0, 6).map(p => (
-              <button key={p} className={`pill pill-sm${selectedPeriod === p && selectedPeriod !== 'latest' ? ' active' : ''}`} onClick={() => setSelectedPeriod(p)}>
+              <button
+                key={p}
+                className={`pill pill-sm${selectedPeriod === p && selectedPeriod !== 'latest' ? ' active' : ''}`}
+                onClick={() => setSelectedPeriod(p)}
+              >
                 {formatPeriod(p, periodType, allPeriodStarts)}
               </button>
             ))}
@@ -141,7 +230,7 @@ export default function TopIntelligence({ records, brand, periodType }) {
         ))}
       </div>
 
-      <div className="section-title" style={{ marginTop: 0 }}>Revenue & Volume — {formatPeriod(activePeriod, periodType, allPeriodStarts)}</div>
+      <div className="section-title" style={{ marginTop: 0 }}>Revenue & Volume — {activePeriodLabel}</div>
       <div className="kpi-grid kpi-grid-5" style={{ marginBottom: 12 }}>
         <KPICard label="GMV" value={fINR(totals.gmv, true)} color="purple" changePct={gmvChange} sub={`vs prior ${periodLabel}`} />
         <KPICard label="Net Payout" value={fINR(totals.netPayout, true)} color="green" changePct={netChange} sub={`vs prior ${periodLabel}`} />
@@ -157,7 +246,7 @@ export default function TopIntelligence({ records, brand, periodType }) {
           display: 'flex', gap: 32, flexWrap: 'wrap',
         }}>
           <div style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1, alignSelf: 'center', marginRight: 8 }}>
-            Prior {periodLabel} ({formatPeriod(priorPeriod, periodType, allPeriodStarts)})
+            {isMTD ? `Last full month (${formatPeriod(latestPeriod, 'Monthly', allPeriodStarts)})` : `Prior ${periodLabel} (${priorPeriodLabel})`}
           </div>
           {[
             { l: 'GMV', v: fINR(priorTotals.gmv, true) },
@@ -221,7 +310,7 @@ export default function TopIntelligence({ records, brand, periodType }) {
         </ResponsiveContainer>
       </div>
 
-      <div className="section-title">Platform & Location — {formatPeriod(activePeriod, periodType, allPeriodStarts)}</div>
+      <div className="section-title">Platform & Location — {activePeriodLabel}</div>
       <div className="chart-row chart-row-2">
         <div className="chart-card">
           <div className="chart-card-title">By Platform</div>
@@ -263,7 +352,7 @@ export default function TopIntelligence({ records, brand, periodType }) {
         </div>
       </div>
 
-      <div className="section-title">Payout Waterfall — {formatPeriod(activePeriod, periodType, allPeriodStarts)}</div>
+      <div className="section-title">Payout Waterfall — {activePeriodLabel}</div>
       <div className="chart-card">
         <div className="chart-card-title">How GMV becomes Net Payout — deduction breakdown</div>
         <WaterfallDisplay waterfall={waterfall} />
@@ -271,8 +360,9 @@ export default function TopIntelligence({ records, brand, periodType }) {
 
       <FounderInsights
         data={{
-          period: formatPeriod(activePeriod, periodType, allPeriodStarts),
+          period: activePeriodLabel,
           brand: currentBrand,
+          isMTD,
           gmv: fINR(totals.gmv, true),
           netPayout: fINR(totals.netPayout, true),
           orders: fNum(totals.deliveredOrders),
@@ -287,7 +377,7 @@ export default function TopIntelligence({ records, brand, periodType }) {
           platformSplit: platSummary.map(p => ({ platform: p.platform, gmv: fINR(p.gmv, true), netPayoutOnNetSales: fPct(p.netPayoutOnNetSales) })),
           locationSplit: locSummary.map(l => ({ location: l.location, gmv: fINR(l.gmv, true), netPayoutOnNetSales: fPct(l.netPayoutOnNetSales) })),
         }}
-        context={`TOP Intelligence — ${periodType} view for ${currentBrand}. Current period: ${formatPeriod(activePeriod, periodType, allPeriodStarts)}. Primary brand for Seed/Series A investor discussions.`}
+        context={`TOP Intelligence — ${periodType} view for ${currentBrand}. Current period: ${activePeriodLabel}. ${isMTD ? 'MTD view — aggregating weekly rows for current in-progress month.' : ''} Primary brand for Seed/Series A investor discussions.`}
       />
     </div>
   );
